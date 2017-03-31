@@ -36,7 +36,7 @@ public class IntegerParameter extends Parameter {
 	public int getNumberOfPossibilities() {
 		int range = highVal - lowVal;
 		int steps = (int)(range/stepSize);
-		steps += 1; //first possibility is no step at all, stay at lowVal
+		steps += 1; //first possibility is making no step at all, stay at lowVal
 		logger.finer("Number of possibilities for "+type+" parameter "+this.getName()+": "+steps);
 		return steps;
 	}
@@ -49,6 +49,11 @@ public class IntegerParameter extends Parameter {
 	@Override
 	public String getMaxValue() {
 		return this.highVal + "";
+	}
+
+	@Override
+	public int getMaxId() {
+		return this.getNumberOfPossibilities() - 1;
 	}
 
 	

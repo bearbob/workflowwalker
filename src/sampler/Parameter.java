@@ -26,6 +26,11 @@ public abstract class Parameter {
 	 * @return Returns the string representation of the highest possible value for this parameter
 	 */
 	abstract public String getMaxValue();
+
+	/**
+	 * @return Returns the id representation of the highest possible value for this parameter
+	 */
+	abstract public int getMaxId();
 	
 	/**
 	 * @return Returns the number of possible values for this parameter.

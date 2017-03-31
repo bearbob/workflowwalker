@@ -43,9 +43,12 @@ abstract public class Walker {
 			logger.severe("No workflow steps are given. At least one step must be defined.");
 			System.exit(ExitCode.WORKFLOWERROR);
 		}
-		
+
+		long time = 0;
+
 		sampling:for(int run=1; run<=samples; run++){
 			logger.info("Started sample run "+run);
+			long starttime = System.currentTimeMillis();
 			//create the new workflow
 			ArrayList<Edge> workflow = new ArrayList<>();
 			for(Step step : steps){
@@ -108,10 +111,12 @@ abstract public class Walker {
 						    TimeUnit.MILLISECONDS.toSeconds(resultTime) - 
 						    TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(resultTime))
 						);
-			logger.info("Counter: Executing workflow "+rootId+" took "+timer);
+			long endtime = System.currentTimeMillis() - starttime;
+			logger.info("Counter: Executing workflow "+rootId+" took "+timer + " ("+endtime+")");
+			time += endtime;
 						
 		}
-		logger.info("Finished sampling after "+samples+" rounds.");
+		logger.info("Finished sampling after "+samples+" rounds. Took an average time of "+ (time/samples));
 		
 	}
 	

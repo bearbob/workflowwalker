@@ -44,4 +44,9 @@ public class StringParameter extends Parameter {
 		return domain[domain.length-1];
 	}
 
+	@Override
+	public int getMaxId() {
+		return domain.length-1;
+	}
+
 }
