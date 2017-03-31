@@ -26,6 +26,7 @@ public class LogDB {
 	private static final String TABLEgold = "_goldstandard";
 	private Connection c = null;
 	private String dbname = "log.db";
+	private String searchType = "MAX";
 
 	public LogDB(){
 		connect();
@@ -992,11 +993,13 @@ public class LogDB {
 	 * @param runName The name of the current sampler run
 	 * @param step The id of the step in the workflow
 	 * @param previous A list of value pairs containing all decisions previously made for the current path {edgeGroup, edgeId}
-	 * @return Array list containing tuples <EdgeGroupName, Score>
+	 * @return Array list containing tuples <EdgeGroupName, Score>, ordered by their score from lowest to highest
 	 */
 	public ArrayList<ValuePair> getEdgeGroupScores(String runName, int step, ArrayList<ValuePair> previous){
 		ArrayList<ValuePair> result = new ArrayList<>();
-		StringBuilder sql = new StringBuilder("SELECT MAX(score), step");
+		StringBuilder sql = new StringBuilder("SELECT ");
+		sql.append(searchType);
+		sql.append("(score) as ms, step");
 		sql.append(step);
 		sql.append("_name FROM ");
 		sql.append(runName);
@@ -1013,7 +1016,7 @@ public class LogDB {
 		}
 		sql.append(" GROUP BY step");
 		sql.append(step);
-		sql.append("_name");
+		sql.append("_name ORDER BY ms ASC");
 		
 		Exception ex = null;
 		boolean finished = false;
@@ -1067,13 +1070,15 @@ public class LogDB {
 	 * @param previous A list of value pairs containing all decisions previously made for the current path {edgeGroup, edgeId}
 	 * @param edgeName The name of the edgegroup
 	 * @param p The parameter object to run the query for
-	 * @param maxValue
+	 * @param maxValueId The id of the parameter value up to which the edges are considered
 	 * @return Returns a value pair, containing the number of elements as key and the max scoresum for these
 	 * elements as value {#Elements, Max Score}
 	 */
-	public ValuePair getScoreSumForParamRange(String runName, int step, ArrayList<ValuePair> previous, String edgeName, Parameter p, String maxValue, double temperature){
+	public ValuePair getScoreSumForParamRange(String runName, int step, ArrayList<ValuePair> previous, String edgeName, Parameter p, long maxValueId, double temperature){
 		// SELECT the avg scores for each edge for this step matching the filter criteria
-		StringBuilder sql = new StringBuilder("SELECT MAX(config.score) AS m FROM ");
+		StringBuilder sql = new StringBuilder("SELECT ");
+		sql.append(searchType);
+		sql.append("(config.score) AS m FROM ");
 		sql.append(runName);
 		sql.append(TABLEconfig);
 		sql.append(" config LEFT JOIN ");
@@ -1114,6 +1119,7 @@ public class LogDB {
 		}
 		sql.append(" GROUP BY step.");
 		sql.append(p.getName());
+		sql.append(" ORDER BY m ASC");
 
 		int hits = 0;
 		double sum = 0.0;
@@ -1126,7 +1132,7 @@ public class LogDB {
 				PreparedStatement pstmt = c.prepareStatement(sql.toString());
 				pstmt.setString(1, p.getName());
 				pstmt.setString(2, p.getMinValue());
-				pstmt.setString(3, maxValue);
+				pstmt.setString(3, p.getValue(maxValueId));
 				if(previous != null && previous.size() > 0 && step > 1){
 					for(int i=0; i<step; i++){
 						pstmt.setString(((2*i)+1)+3, previous.get(i).getName());
@@ -1134,10 +1140,22 @@ public class LogDB {
 					}
 				}
 
+				/* ATTENTION:
+				 * The current implementation of the sum calculation requires a "clean" database,
+				 * meaning results from previous runs are allowed, but the settings for a parameter
+				 * may not change in a way that the new settings have less possibilites than the new
+				 * or other parametervalues. This means a change for an imaginary parameter a with the
+				 * values {1,2,3} to {1,2,3,4,5,6} is allowed, whereas {1,2} order {1.5,2.5,3.5} is not
+				 * allowed
+				 */
+
 				ResultSet rs = pstmt.executeQuery();
-				while(rs.next()){
+				int position = 0;
+				while(rs.next()) {
 					hits += rs.getInt(2);
-					sum += Temperature.getRelativeScore(rs.getDouble(1), temperature);
+					ValuePair vp = new ValuePair("null", rs.getString(1));
+					sum += Temperature.getRelativeScoreForElement(vp, temperature, position, p.getNumberOfPossibilities());
+					position++;
 				}
 				logger.finest("Hits: "+hits+" and sum: "+sum);
 

@@ -14,7 +14,7 @@ import sampler.Walker;
 
 public class Main {
 	private static Logger logger;
-	private static final String VERSION = "1.4a";
+	private static final String VERSION = "1.42";
 	//defaults
 	private static String runName = "dna";
 	private static String inputFile = "";

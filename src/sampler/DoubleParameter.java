@@ -82,4 +82,9 @@ public class DoubleParameter extends Parameter {
 		return this.highVal + "";
 	}
 
+	@Override
+	public int getMaxId() {
+		return this.getNumberOfPossibilities() - 1;
+	}
+
 }
