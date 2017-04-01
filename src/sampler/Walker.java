@@ -49,9 +49,13 @@ abstract public class Walker {
 
 		//calculate the total number of possibilities
 		long current = 0;
-		long candidate = 0;
+		double currentScore = 0.0;
+		double avgScore = 0.0;
+		double acceptedCounter = 0;
+		long candidate;
 		long allPaths = 1;
 		for(Step step : steps){
+			logger.finer("Step "+step.getId()+" has "+step.getPossibilities()+" possibilities");
 			allPaths *= step.getPossibilities();
 		}
 		logger.finer("Total paths: "+allPaths);
@@ -84,62 +88,75 @@ abstract public class Walker {
 				logger.finest("Adding edge "+e.getGroupName()+" with ID "+e.getIdAsString()+" to workflow.");
 				config.add(new ValuePair(e.getGroupName(), e.getIdAsString()));
 			}
+
+			long rootId;
 			long previousId = logdb.containsSubset(config.toArray(new ValuePair[config.size()]), runName, true);
 			if( previousId > 0){
 				//has been computed before, no need to do it again
 				logger.info("This configuration has been computed before with id: "+previousId);
-				continue sampling;
-			}
-			logger.finest("Configuration is not known yet. ");
-			//save new config to db
-			long rootId = logdb.addConfiguration(config.toArray(new ValuePair[config.size()]), runName);
+				rootId = previousId;
+			}else {
+				logger.finest("Configuration is not known yet. ");
+				//save new config to db
+				rootId = logdb.addConfiguration(config.toArray(new ValuePair[config.size()]), runName);
 
-			// compute the new config, but first check if caching is active and a subset has
-			// been computed before
-			long cachedId = -1; // default aka "none found"
-			// The last step both the cache and the new config have in common
-			int lastCommonStep = -1;
-			if(USECACHE){
-				filter:for(int i=0; i<config.size(); i++){
-					//create and fill subset
-					ValuePair[] subset = new ValuePair[i+1];
-					for(int j=0; j<=i; j++){
-						subset[j] = config.get(j);
+				// compute the new config, but first check if caching is active and a subset has
+				// been computed before
+				long cachedId = -1; // default aka "none found"
+				// The last step both the cache and the new config have in common
+				int lastCommonStep = -1;
+				if (USECACHE) {
+					filter:
+					for (int i = 0; i < config.size(); i++) {
+						//create and fill subset
+						ValuePair[] subset = new ValuePair[i + 1];
+						for (int j = 0; j <= i; j++) {
+							subset[j] = config.get(j);
+						}
+						long tempId = logdb.containsSubset(subset, runName);
+						if (tempId > 0) {
+							logger.fine("Cached config found. Was " + cachedId + ", is now " + tempId + " (Step ID: " + i + ").");
+							cachedId = tempId;
+							lastCommonStep = i;
+						} else {
+							//no need to look any further, subset filter will only be more specified
+							logger.fine("Stop looking for a suitable cache config, current cache config: " + cachedId + " with starting step " + lastCommonStep);
+							break filter;
+						}
 					}
-					long tempId = logdb.containsSubset(subset, runName);
-					if(tempId > 0){
-						logger.fine("Cached config found. Was "+cachedId+", is now "+tempId+" (Step ID: "+i+").");
-						cachedId = tempId;
-						lastCommonStep = i;
-					}else{
-						//no need to look any further, subset filter will only be more specified
-						logger.fine("Stop looking for a suitable cache config, current cache config: "+cachedId+ " with starting step "+lastCommonStep);
-						break filter;
-					}
+				}//eoif USECACHE
+
+				//stop the time
+				long start = System.currentTimeMillis();
+				// fetch from cache if possible and first run
+				int result = walk(rootId, workflow.toArray(new Edge[workflow.size()]), cachedId, lastCommonStep);
+				if (result != 0) {
+					logdb.failConfiguration(rootId, runName, result);
 				}
-			}//eoif USECACHE
-
-
-			//stop the time
-			long start = System.currentTimeMillis();
-			// fetch from cache if possible and first run
-			int result = walk(rootId, workflow.toArray(new Edge[workflow.size()]), cachedId, lastCommonStep);
-			//TODO somehow calculate the acceptance
-			if(result != 0){
-				logdb.failConfiguration(rootId, runName, result);
+				long resultTime = System.currentTimeMillis() - start;
+				String timer = String.format("%d min, %d sec",
+						TimeUnit.MILLISECONDS.toMinutes(resultTime),
+						TimeUnit.MILLISECONDS.toSeconds(resultTime) -
+								TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(resultTime))
+				);
+				long endtime = System.currentTimeMillis() - starttime;
+				logger.info("Counter: Executing workflow "+rootId+" took "+timer + " ("+endtime+"ms)");
+				time += endtime;
 			}
-			long resultTime = System.currentTimeMillis() - start;
-			String timer = String.format("%d min, %d sec", 
-						    TimeUnit.MILLISECONDS.toMinutes(resultTime),
-						    TimeUnit.MILLISECONDS.toSeconds(resultTime) - 
-						    TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(resultTime))
-						);
-			long endtime = System.currentTimeMillis() - starttime;
-			logger.info("Counter: Executing workflow "+rootId+" took "+timer + " ("+endtime+")");
-			time += endtime;
+			//did not fail, has score:
+			double candidateScore = logdb.getScoreForConfig(runName, rootId);
+			boolean accepted = AnnealingFunction.compareConfigs(currentScore, candidateScore, ((double)run/(double)samples));
+			if(accepted){
+				current = candidate;
+				currentScore = candidateScore;
+				avgScore += currentScore;
+				acceptedCounter++;
+				logger.info("Candidate was accepted.");
+			}
 						
 		}
 		logger.info("Finished sampling after "+samples+" rounds. Took an average time of "+ (time/samples));
+		logger.info("Final solution score: "+currentScore+", average: "+(avgScore/acceptedCounter));
 		
 	}
 	

@@ -87,23 +87,6 @@ public class RastriginWalker extends Walker {
 			s.addEdgeGroup(eg);
 			workflow.add(s);
 
-			/*
-			s = new Step(this.logdb, this.runName);
-			paramList = new ArrayList<>();
-			paramList.add(new DoubleParameter("zl", -3, -1, 0.1));
-			eg = new EdgeGroup("lowVars3", paramList.toArray(new Parameter[paramList.size()]), null, null, "$#zl#$");
-			s.addEdgeGroup(eg);
-			paramList = new ArrayList<>();
-			paramList.add(new DoubleParameter("zm", -1, 1, 0.1));
-			eg = new EdgeGroup("midVars3", paramList.toArray(new Parameter[paramList.size()]), null, null, "$#zm#$");
-			s.addEdgeGroup(eg);
-			paramList = new ArrayList<>();
-			paramList.add(new DoubleParameter("zh", 1, 3, 0.1));
-			eg = new EdgeGroup("highVars3", paramList.toArray(new Parameter[paramList.size()]), null, null, "$#zh#$");
-			s.addEdgeGroup(eg);
-			workflow.add(s);
-			*/
-
 			logger.fine("Created new workflow with "+workflow.size()+" steps.");
 		}
 		return workflow;

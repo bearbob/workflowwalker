@@ -14,7 +14,7 @@ import sampler.Walker;
 
 public class Main {
 	private static Logger logger;
-	private static final String VERSION = "1.42";
+	private static final String VERSION = "2.0";
 	//defaults
 	private static String runName = "dna";
 	private static String inputFile = "";
@@ -99,6 +99,7 @@ public class Main {
 		if(nargs.contains("--test")){
 			// RastriginWalker is a basic function to test the functionality
 			Walker test = new RastriginWalker(logdb, runName);
+			test.useCache(false);
 			test.sample(sampleNumber);
 			System.exit(0);
 		}

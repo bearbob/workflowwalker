@@ -59,9 +59,9 @@ public class Step {
 	 * @return The number of possible alternatives for the whole step
 	 */
 	public long getPossibilities() {
-		long poss = 1;
+		long poss = 0;
 		for(EdgeGroup eg : this.groupList){
-			poss *= eg.getPossibilities();
+			poss += eg.getPossibilities();
 		}
 		return poss;
 	}
@@ -76,7 +76,7 @@ public class Step {
 	protected Edge chooseNewEdge(long target, long lowerBound, long upperBound){
 
 		long followingOptions = (upperBound - lowerBound +1)/this.getPossibilities();
-		logger.finest("Options following step "+this.ID+": "+followingOptions);
+		logger.finer("Target = "+target+", Options following step "+this.ID+": "+followingOptions);
 		long templower = lowerBound;
 		long tempupper = upperBound;
 
@@ -89,9 +89,10 @@ public class Step {
 				EdgeGroup eg = groupList.get(i);
 				//search for the group containing the target path
 				tempupper = eg.getPossibilities()*followingOptions + templower - 1;
+				logger.finer("Current lower: "+templower + ", current upper: "+tempupper+" for edge group "+i);
 				if(tempupper >= target){
-					logger.finest("Current upper: "+tempupper + ", current lower: "+templower+" for edge group "+i);
 					chosenGroup = i;
+					logger.finer("Chosen group: group "+i);
 					break;
 				}
 				templower = tempupper + 1;
@@ -111,6 +112,7 @@ public class Step {
 			long parameterFollowing = edgeGroupFollowing * followingOptions;
 			//using that integer division uses the lower int:
 			long m = (target - templower)/parameterFollowing;
+			logger.fine("m = (target - templower)/parameterFollowing;\n" + m + " = ("+ target + " - " + templower+")/"+parameterFollowing);
 
 			templower = templower + (m * followingOptions);
 			tempupper = templower + followingOptions;
@@ -119,7 +121,7 @@ public class Step {
 			logger.finest("Choose value "+valueList[i].getValue()+" for "+valueList[i].getName());
 
 		}//end of loop over all parameters
-		logger.finest("Choose edge for value list with size "+valueList.length+" (parameter: "+plist.length+")");
+		logger.fine("Choose edge for value list with size "+valueList.length+" (parameter: "+plist.length+")");
 		Edge chosenEdge = groupList.get(chosenGroup).getEdgeById(valueList);
 
 		chosenEdge.setLowerBound(templower);

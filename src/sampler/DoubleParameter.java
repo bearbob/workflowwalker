@@ -68,7 +68,7 @@ public class DoubleParameter extends Parameter {
 		double range = highVal - lowVal;
 		int steps = (int)(range/stepSize);
 		steps += 1; //first possibility is no step at all, stay at lowVal
-		logger.finer("Number of possibilities for "+type+" parameter "+this.getName()+": "+steps);
+		logger.finest("Number of possibilities for "+type+" parameter "+this.getName()+": "+steps);
 		return steps;
 	}
 	
