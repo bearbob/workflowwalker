@@ -10,6 +10,30 @@ public class Edge {
 	private String command;
 	private String[] inputFiles;
 	private String[] outputFiles;
+
+	public long getLowerBound() {
+		return lowerBound;
+	}
+
+	/**
+	 * Set the lowest id of all following edges
+	 * @param lowerBound
+	 */
+	public void setLowerBound(long lowerBound) {
+		this.lowerBound = lowerBound;
+	}
+
+	private long lowerBound;
+
+	public long getUpperBound() {
+		return upperBound;
+	}
+
+	public void setUpperBound(long upperBound) {
+		this.upperBound = upperBound;
+	}
+
+	private long upperBound;
 	
 	/**
 	 * Creates a new edge object

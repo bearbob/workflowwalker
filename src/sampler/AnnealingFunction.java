@@ -3,25 +3,25 @@ package sampler;
 import logdb.ValuePair;
 
 import java.util.ArrayList;
+import java.util.concurrent.ThreadLocalRandom;
 
 /**
  * Created by B.Gross on 21.03.17.
  * Simple class to modify the behavior with rising sample number
  */
-public class Temperature {
-    private static double modifier = 5.0;
+public class AnnealingFunction {
+    private static double distanceModifier = 0.1;
+    private static double modifier = 2.0;
 
-    /**
-     * Used to get the score dependent on the current system temperature.
-     * @param score Positive value
-     * @param temperature Value between 0 and 1, rising over time
-     * @return
-     */
-    public static double getRelativeScore(double score, double temperature){
-        // t(x) = (1+x)^(1+t)
-        double r = Math.pow(score +1, 1 + temperature);
-        //double r = score * (1 + 99*temperature);
-        return r;
+    public static long getDistance(long allPossibilities){
+        return Math.round(allPossibilities*distanceModifier);
+    }
+
+    public static long getNextCandidate(long all, long current){
+        long dist = getDistance(all);
+        long mod = ThreadLocalRandom.current().nextLong(-(dist+1), dist+1);
+
+        return ((current + mod)%all)+1;
     }
 
     /**

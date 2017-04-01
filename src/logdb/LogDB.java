@@ -14,7 +14,7 @@ import java.util.logging.Logger;
 
 import sampler.Parameter;
 import sampler.StringParameter;
-import sampler.Temperature;
+import sampler.AnnealingFunction;
 
 public class LogDB {
 	private static Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
@@ -1154,7 +1154,7 @@ public class LogDB {
 				while(rs.next()) {
 					hits += rs.getInt(2);
 					ValuePair vp = new ValuePair("null", rs.getString(1));
-					sum += Temperature.getRelativeScoreForElement(vp, temperature, position, p.getNumberOfPossibilities());
+					sum += AnnealingFunction.getRelativeScoreForElement(vp, temperature, position, p.getNumberOfPossibilities());
 					position++;
 				}
 				logger.finest("Hits: "+hits+" and sum: "+sum);

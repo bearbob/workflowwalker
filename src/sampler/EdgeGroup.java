@@ -105,6 +105,18 @@ public class EdgeGroup {
 		// the only difference is the parameter setting
 		return this.rawCommand;
 	}
+
+	/**
+	 *
+	 * @return The number of possible alternatives for the whole edge group
+	 */
+	public long getPossibilities(){
+		long poss = 1;
+		for(Parameter param : this.parameterList){
+			poss *= param.getNumberOfPossibilities();
+		}
+		return poss;
+	}
 	
 	/**
 	 * @return Returns a processed command that can be run at the command line.

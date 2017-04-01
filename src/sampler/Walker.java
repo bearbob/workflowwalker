@@ -5,6 +5,7 @@ import general.ExitCode;
 import java.util.ArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+import java.util.concurrent.ThreadLocalRandom;
 
 import logdb.LogDB;
 import logdb.ValuePair;
@@ -46,15 +47,36 @@ abstract public class Walker {
 
 		long time = 0;
 
+		//calculate the total number of possibilities
+		long current = 0;
+		long candidate = 0;
+		long allPaths = 1;
+		for(Step step : steps){
+			allPaths *= step.getPossibilities();
+		}
+		logger.finer("Total paths: "+allPaths);
+
 		sampling:for(int run=1; run<=samples; run++){
 			logger.info("Started sample run "+run);
 			long starttime = System.currentTimeMillis();
-			//create the new workflow
+			//choose new configuration
+			if(run>1){
+				//choose new edge from neighborhood
+				candidate = AnnealingFunction.getNextCandidate(allPaths, current);
+			}else{
+				//initial configuration, choose randomly
+				candidate = ThreadLocalRandom.current().nextLong(1, allPaths+1);
+			}
+			//create the new workflow from the candidate
+			long lowerBound = 0;
+			long upperBound = allPaths - 1;
 			ArrayList<Edge> workflow = new ArrayList<>();
 			for(Step step : steps){
 				logger.finest("Choose new Edge for step "+step.getId());
-				double temperature = ((double)run)/ samples;
-				workflow.add(step.chooseNewEdge(workflow, temperature));
+				Edge edge = step.chooseNewEdge(candidate, lowerBound, upperBound);
+				workflow.add(edge);
+				lowerBound = edge.getLowerBound();
+				upperBound = edge.getUpperBound();
 			}
 			
 			ArrayList<ValuePair> config = new ArrayList<>();
@@ -102,6 +124,7 @@ abstract public class Walker {
 			long start = System.currentTimeMillis();
 			// fetch from cache if possible and first run
 			int result = walk(rootId, workflow.toArray(new Edge[workflow.size()]), cachedId, lastCommonStep);
+			//TODO somehow calculate the acceptance
 			if(result != 0){
 				logdb.failConfiguration(rootId, runName, result);
 			}
