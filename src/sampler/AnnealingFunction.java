@@ -10,8 +10,8 @@ import java.util.logging.Logger;
  */
 public class AnnealingFunction {
     protected static Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
-    private static double distanceModifier = 0.25;
-    private static double tzero = 2;
+    private static double distanceModifier = 0.10;
+    private static double tzero = 1;
 
     public static long getDistance(long allPossibilities){
 
@@ -26,9 +26,9 @@ public class AnnealingFunction {
     }
 
     public static boolean compareConfigs(double currentScore, double candidateScore, double temperature){
-        double t = tzero * (1-temperature);
-        double delta = (candidateScore - currentScore)*10;
-        double pa = Math.min(1, Math.exp(delta/t));
+        tzero = tzero / (1+temperature);
+        double delta = (candidateScore - currentScore);
+        double pa = Math.min(1, Math.exp(delta/tzero));
 
         Random generator = new Random();
         double selected = generator.nextDouble();

@@ -228,10 +228,15 @@ public class LogDB {
 		createAccepted += runName;
 		createAccepted += "_accepted ( `id` INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE, `configId` INTEGER NOT NULL, score String NOT NULL);";
 
+		String createSample = "CREATE TABLE IF NOT EXISTS ";
+		createSample += runName;
+		createSample += "_sample ( `id` INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE, `configId` INTEGER NOT NULL, score String NOT NULL);";
+
 		this.executeUpdate(createPlan.toString());
 		this.executeUpdate(createResults.toString());
 		this.executeUpdate(createAnnotated.toString());
 		this.executeUpdate(createAccepted);
+		this.executeUpdate(createSample);
 		logger.fine("Tables created.");
 				
 		
@@ -526,7 +531,20 @@ public class LogDB {
 		sql.append(")");
 
 		this.executeUpdate(sql.toString());
+	}
 
+	public void addSample(String runName, long configId, double score){
+		connect();
+		StringBuilder sql = new StringBuilder("INSERT INTO ");
+		sql.append(runName);
+		sql.append("_sample ( configId, score ) VALUES ");
+		sql.append("(");
+		sql.append(configId);
+		sql.append(", ");
+		sql.append(score);
+		sql.append(")");
+
+		this.executeUpdate(sql.toString());
 	}
 	
 	/**
