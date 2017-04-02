@@ -51,14 +51,12 @@ abstract public class Walker {
 			long starttime = System.currentTimeMillis();
 			//create the new workflow
 			ArrayList<Edge> workflow = new ArrayList<>();
+			ArrayList<ValuePair> config = new ArrayList<>();
 			for(Step step : steps){
 				logger.finest("Choose new Edge for step "+step.getId());
 				double temperature = ((double)run)/ samples;
-				workflow.add(step.chooseNewEdge(workflow, temperature));
-			}
-			
-			ArrayList<ValuePair> config = new ArrayList<>();
-			for(Edge e : workflow){
+				Edge e = step.chooseNewEdge(workflow, temperature);
+				workflow.add(e);
 				logger.finest("Adding edge "+e.getGroupName()+" with ID "+e.getIdAsString()+" to workflow.");
 				config.add(new ValuePair(e.getGroupName(), e.getIdAsString()));
 			}
@@ -66,6 +64,8 @@ abstract public class Walker {
 			if( previousId > 0){
 				//has been computed before, no need to do it again
 				logger.info("This configuration has been computed before with id: "+previousId);
+				//log the score for optional result evaluation
+				logdb.addSample(runName, previousId, logdb.getScoreForConfig(runName, previousId));
 				continue sampling;
 			}
 			logger.finest("Configuration is not known yet. ");
@@ -104,6 +104,8 @@ abstract public class Walker {
 			int result = walk(rootId, workflow.toArray(new Edge[workflow.size()]), cachedId, lastCommonStep);
 			if(result != 0){
 				logdb.failConfiguration(rootId, runName, result);
+			}else{
+				logdb.addSample(runName, rootId, logdb.getScoreForConfig(runName, rootId));
 			}
 			long resultTime = System.currentTimeMillis() - start;
 			String timer = String.format("%d min, %d sec", 
@@ -112,11 +114,11 @@ abstract public class Walker {
 						    TimeUnit.MINUTES.toSeconds(TimeUnit.MILLISECONDS.toMinutes(resultTime))
 						);
 			long endtime = System.currentTimeMillis() - starttime;
-			logger.info("Counter: Executing workflow "+rootId+" took "+timer + " ("+endtime+")");
+			logger.info("Counter: Executing workflow "+rootId+" took "+timer + " ("+endtime+"ms)");
 			time += endtime;
 						
 		}
-		logger.info("Finished sampling after "+samples+" rounds. Took an average time of "+ (time/samples));
+		logger.info("Finished sampling after "+samples+" rounds. Took an average time of "+ (time/samples)+"ms.");
 		
 	}
 	
@@ -134,9 +136,11 @@ abstract public class Walker {
 		try{
 			createExecutionEnv(configId);
 			handleInputFiles(configId);
-			boolean cache = handleCacheFiles(configId, workflow, cacheId, lastCommonStep);
-			if(!cache || lastCommonStep < 0){
-				lastCommonStep = 0;
+			if(USECACHE) {
+				boolean cache = handleCacheFiles(configId, workflow, cacheId, lastCommonStep);
+				if (!cache || lastCommonStep < 0) {
+					lastCommonStep = 0;
+				}
 			}
 			logger.finest("Starting with last common step: "+lastCommonStep);
 			for(int e=lastCommonStep; e<workflow.length; e++){
@@ -147,7 +151,7 @@ abstract public class Walker {
 			
 			// no error so far? Nice. Then we are done.
 			if(!USECACHE){
-				//no caching, erase the files after we are done
+				//no caching, erase the files after we are done to save space
 				deleteWorkfiles(configId);
 			}
 			return 0;

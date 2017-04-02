@@ -19,7 +19,6 @@ import java.util.logging.*;
 import logdb.LogDB;
 import sampler.Edge;
 import sampler.ExitCodeException;
-import sampler.Step;
 import sampler.Walker;
 
 abstract public class BashWalker extends Walker {
@@ -44,7 +43,7 @@ abstract public class BashWalker extends Walker {
 		this.THREADS = threads;
 		if(target == null){
 			logger.warning("Given target function was null, creating a default target function with meta comparison and a burryIn phase of 20 samples.");
-			tf = new TargetFunction(logdb, 20);
+			tf = new TargetFunction(logdb);
 		}else{
 			tf = target;
 		}

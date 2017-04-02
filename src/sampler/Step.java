@@ -85,22 +85,30 @@ public class Step {
 			ArrayList<ValuePair> groupScores = logdb.getEdgeGroupScores(runName, ID, history);
 			//get the total sum of scores for all edge groups that have been visited
 			double groupSum = Temperature.getRelativeScoreSum(groupScores, temperature);
-			
+
+			//create temporary list to remove elements from, to make the selection faster for many groups
+			ArrayList<ValuePair> tempScores = new ArrayList<>();
+			tempScores.addAll(groupScores);
 			groups:for(int i=0; i<groupList.size(); i++){
 				//search for the group score of group i
 				boolean visited = false;
-				for(int j=0; j<groupScores.size(); j++){
-					ValuePair vp = groupScores.get(j);
+				int j;
+				for(j=0; j<tempScores.size(); j++){
+					ValuePair vp = tempScores.get(j);
 					if(vp.getName().equals(groupList.get(i).getGroupName())){
 						//P = ownScore/AllVisitedScore * numVisited/all
 						double score = Temperature.getRelativeScoreForElement(vp, temperature, j, groupScores.size());
 						pointer += (score/groupSum) * ((double)groupScores.size()/groupList.size());
 						visited = true;
+						//dont search further trough the group scores
+						break;
 					}
 				}
 				if(!visited) {
 					// add the probability if edge has not been visited
 					pointer += 1.0 / groupList.size();
+				}else{
+					tempScores.remove(j);
 				}
 				if(pointer > randomValue){
 					chosenGroup = i;
@@ -144,7 +152,7 @@ public class Step {
 				logger.finest( "compare = (("+(m+1)+" - "+Integer.parseInt(vp.getName())+"))/"+(double)edgesAll+") + ("+visitedMultiply+" * "+Double.parseDouble(vp.getValue())+")");
 				// m is not the number of edges, but m=(edges -1)
 				compare = (((m+1) - Integer.parseInt(vp.getName()))/(double)edgesAll) + (visitedMultiply * Double.parseDouble(vp.getValue()));
-				logger.finer("Compare: "+compare+" to target-random="+randomValue);
+				logger.finest("Compare: "+compare+" to target-random="+randomValue);
 				if(compare < randomValue){
 					left = m+1;
 				}else if(compare > randomValue){

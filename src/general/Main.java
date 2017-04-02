@@ -93,7 +93,7 @@ public class Main {
 		logger.finest("Database name handled.");
 
 		LogDB logdb = new LogDB(dbname);
-		TargetFunction tf = new TargetFunction(logdb, 20);
+		TargetFunction tf = new TargetFunction(logdb);
 
 		//this is for testing the walker with a simple command
 		if(nargs.contains("--test")){

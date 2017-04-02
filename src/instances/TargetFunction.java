@@ -19,16 +19,14 @@ public class TargetFunction {
 	
 	private static Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 	private int target = META;
-	private int burryIn = 25;
 	private LogDB logdb;
 	private boolean overwrite = false;
 	private boolean annotate = false;
 	
-	public TargetFunction(LogDB logdb, int burryIn){
+	public TargetFunction(LogDB logdb){
 		this.logdb = logdb;
-		this.burryIn = burryIn;
 	}
-	
+
 	public void setTarget(int target){
 		if(target == SIMILARITYgoldstandard || target == META){
 			this.target = target;

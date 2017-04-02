@@ -25,16 +25,18 @@ public class LogDB {
 	private static final String TABLEanno = "_annotated_results";
 	private static final String TABLEgold = "_goldstandard";
 	private Connection c = null;
-	private String dbname = "log.db";
+	private String dbname;
 	private String searchType = "MAX";
+	private ArrayList<Long> configCache;
 
 	public LogDB(){
-		connect();
+		this("log.db");
 	}
 
 	public LogDB(String databasename){
 		this.dbname = databasename;
 		connect();
+		configCache = new ArrayList<>();
 	}
 	
 	private void crash(Exception e){
@@ -104,9 +106,8 @@ public class LogDB {
 	}
 
 	/**
-	 *
 	 * @param sql The sql select query that will be executed
-	 * @return An integer value matching the request. Well, what did you expect to read here? I have no idea what queries you will use!
+	 * @return An integer value matching the request
 	 */
 	private int selectInteger(String sql){
 		int result = -1337; //dummy value
@@ -119,6 +120,41 @@ public class LogDB {
 				ResultSet rs = stmt.executeQuery(sql);
 				if(rs.next()){
 					result = rs.getInt(1);
+				}
+				rs.close();
+				stmt.close();
+				c.commit();
+				c.setAutoCommit(true);
+				return result;
+			}catch(Exception e){
+				logger.log(Level.WARNING, "SQL String: "+sql, e);
+				ex = e;
+				try{
+					Thread.sleep(RETRYTIMEMS * (i+1));
+				}catch(InterruptedException iex){
+					logger.finest("Thread was interrupted while waiting for a retry for sql select query.");
+				}
+			}
+		}
+		crash(ex);
+		return result;
+	}
+
+	/**
+	 * @param sql The sql select query that will be executed
+	 * @return An string value matching the request
+	 */
+	private String selectString(String sql){
+		String result = ""; //dummy value
+		Exception ex = null;
+		for(int i=0; i<NUMBEROFRETRIES; i++){
+			try{
+				connect();
+				c.setAutoCommit(false);
+				Statement stmt = c.createStatement();
+				ResultSet rs = stmt.executeQuery(sql);
+				if(rs.next()){
+					result = rs.getString(1);
 				}
 				rs.close();
 				stmt.close();
@@ -174,6 +210,10 @@ public class LogDB {
 		createResults.append("`pos` TEXT NOT NULL, ");
 		createResults.append("`content` TEXT ");
 		createResults.append(");");
+
+		String createSample = "CREATE TABLE IF NOT EXISTS ";
+		createSample += runName;
+		createSample += "_sample ( `id` INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE, `configId` INTEGER NOT NULL, score String NOT NULL);";
 		
 		StringBuilder createAnnotated = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
 		createAnnotated.append(runName);
@@ -192,6 +232,7 @@ public class LogDB {
 		this.executeUpdate(createPlan.toString());
 		this.executeUpdate(createResults.toString());
 		this.executeUpdate(createAnnotated.toString());
+		this.executeUpdate(createSample);
 		logger.fine("Tables created.");
 				
 		
@@ -238,7 +279,22 @@ public class LogDB {
 		logger.fine("Table for edge group "+edgeName+" created.");
 
 	}
-	
+
+	public void addSample(String runName, long configId, String score){
+		connect();
+		StringBuilder sql = new StringBuilder("INSERT INTO ");
+		sql.append(runName);
+		sql.append("_sample ( configId, score ) VALUES ");
+		sql.append("(");
+		sql.append(configId);
+		sql.append(", ");
+		sql.append(score);
+		sql.append(")");
+
+		this.executeUpdate(sql.toString());
+	}
+
+
 	/**
 	 * Add the given edge to it's edge group chronic. If the edge has no parameters, no 
 	 * entry will be created and 0 is returned. In this context an "edge" is considered
@@ -439,7 +495,11 @@ public class LogDB {
 		if(!finished){
 			crash(ex);
 		}
-		logger.fine("Created new configuration with id "+rowId);
+		logger.finer("Created new configuration with id "+rowId);
+
+		//add to cache
+		configCache.add(rowId);
+
 		return rowId;
 	}
 
@@ -562,6 +622,8 @@ public class LogDB {
 		sql.append(" WHERE id=");
 		sql.append(id);
 		logger.info("Failed configuration: "+sql.toString());
+
+		configCache.remove(id);
 		
 		this.executeUpdate(sql.toString());
 	}
@@ -584,6 +646,22 @@ public class LogDB {
 		logger.info("Update configuration: "+sql.toString());
 		
 		this.executeUpdate(sql.toString());
+	}
+
+	/**
+	 * Get the score for a given configuration
+	 * @param runName The name of the current sampler run
+	 * @return The score of the configuration or '-1' if something went wrong(i.e. the configuration failed and has no score)
+	 */
+	public String getScoreForConfig(String runName, long configId){
+		String sql = "SELECT score FROM " + runName + TABLEconfig + " WHERE failed=0 AND id = "+configId;
+		String result = this.selectString(sql);
+		if(result.isEmpty()){
+			//can happen if configuration does not exist or failed and has no score
+			result = "-1";
+		}
+		logger.finer("Run '"+runName+"', config "+ configId +" has score "+result);
+		return result;
 	}
 
 	/**
@@ -623,7 +701,7 @@ public class LogDB {
 			concat = " AND ";
 		}
 		if(!includeFailed){
-			sql.append(" AND failed=0");
+			sql.append(" AND failed = 0");
 		}
 		sql.append(" ORDER BY score DESC LIMIT 1;");
 		logger.finest(sql.toString());
@@ -676,6 +754,9 @@ public class LogDB {
 	 * @return The number of (not failed) configurations, or -1 if an error occurred
 	 */
 	public int getTotalNumberOfConfigurations(String runName){
+		if(configCache.size() > 0){
+			return configCache.size();
+		}
 		String sql = "SELECT COUNT(*) FROM " + runName + TABLEconfig + " WHERE failed=0";
 		int result = this.selectInteger(sql);
 		logger.finer("Run "+runName+" has "+result+" completed configurations.");
@@ -688,8 +769,10 @@ public class LogDB {
 	 * @return An list containing the ids of all configurations (that are not marked as failed)
 	 */
 	public ArrayList<Long> getConfigurations(String runName){
+		if(configCache.size() > 0){
+			return configCache;
+		}
 		String sql = "SELECT id FROM " + runName + TABLEconfig + " WHERE failed=0";
-		ArrayList<Long> result = new ArrayList<>();
 		Exception ex = null;
 		boolean finished = false;
 		for(int k=0; k<NUMBEROFRETRIES && !finished; k++){
@@ -698,7 +781,7 @@ public class LogDB {
 				Statement stmt = c.createStatement();
 				ResultSet rs = stmt.executeQuery(sql);
 				while(rs.next()){
-					result.add(rs.getLong(1));
+					configCache.add(rs.getLong(1));
 				}
 				rs.close();
 				stmt.close();
@@ -721,8 +804,8 @@ public class LogDB {
 			crash(ex);
 		}
 
-		logger.finer("Run "+runName+" has "+result.size()+" completed configurations.");
-		return result;
+		logger.finer("Run "+runName+" has "+configCache.size()+" completed configurations.");
+		return configCache;
 	}
 	
 	/**
