@@ -27,7 +27,7 @@ public class AnnealingFunction {
 
     public static boolean compareConfigs(double currentScore, double candidateScore, double temperature){
         double t = tzero * (1-temperature);
-        double delta = candidateScore - currentScore;
+        double delta = (candidateScore - currentScore)*10;
         double pa = Math.min(1, Math.exp(delta/t));
 
         Random generator = new Random();

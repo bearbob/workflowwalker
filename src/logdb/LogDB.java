@@ -224,9 +224,14 @@ public class LogDB {
 		createAnnotated.append("`quality` TEXT NOT NULL ");
 		createAnnotated.append(");");
 
+		String createAccepted = "CREATE TABLE IF NOT EXISTS ";
+		createAccepted += runName;
+		createAccepted += "_accepted ( `id` INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE, `configId` INTEGER NOT NULL, score String NOT NULL);";
+
 		this.executeUpdate(createPlan.toString());
 		this.executeUpdate(createResults.toString());
 		this.executeUpdate(createAnnotated.toString());
+		this.executeUpdate(createAccepted);
 		logger.fine("Tables created.");
 				
 		
@@ -506,6 +511,22 @@ public class LogDB {
 		int affectedRows = this.executeUpdate(sql.toString());
 		logger.fine("Added gold variants, affected "+affectedRows+" rows.");
 		
+	}
+
+
+	public void addAccepted(String runName, long configId, double score){
+		connect();
+		StringBuilder sql = new StringBuilder("INSERT INTO ");
+		sql.append(runName);
+		sql.append("_accepted ( configId, score ) VALUES ");
+		sql.append("(");
+		sql.append(configId);
+		sql.append(", ");
+		sql.append(score);
+		sql.append(")");
+
+		this.executeUpdate(sql.toString());
+
 	}
 	
 	/**

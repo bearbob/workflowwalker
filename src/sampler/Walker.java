@@ -151,6 +151,7 @@ abstract public class Walker {
 				currentScore = candidateScore;
 				avgScore += currentScore;
 				acceptedCounter++;
+				logdb.addAccepted(runName, rootId, currentScore);
 				logger.info("Candidate was accepted.");
 			}
 						
