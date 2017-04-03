@@ -27,6 +27,68 @@ public class RastriginWalker extends Walker {
 	}
 
 	@Override
+	protected Workflow getSteps() {
+		/* Workflow size:
+		 * Three steps with (20 + 20 + 20) edges each
+		 * 60^3 = 216000
+		 */
+		if(workflow == null){
+			workflow = new Workflow();
+
+			double stepSize = 0.01;
+
+			Step s = new Step(this.logdb, this.runName);
+			ArrayList<Parameter> paramList = new ArrayList<>();
+			paramList.add(new DoubleParameter("xll", -5, (-3 - stepSize), stepSize));
+			EdgeGroup eg = new EdgeGroup("verylowVars1", paramList.toArray(new Parameter[paramList.size()]), null, null, "$#xll#$");
+			s.addEdgeGroup(eg);
+			paramList = new ArrayList<>();
+			paramList.add(new DoubleParameter("xl", -3, (-1 - stepSize), stepSize));
+			eg = new EdgeGroup("lowVars1", paramList.toArray(new Parameter[paramList.size()]), null, null, "$#xl#$");
+			s.addEdgeGroup(eg);
+			paramList = new ArrayList<>();
+			paramList.add(new DoubleParameter("xm", -1, 1, stepSize));
+			eg = new EdgeGroup("midVars1", paramList.toArray(new Parameter[paramList.size()]), null, null, "$#xm#$");
+			s.addEdgeGroup(eg);
+			paramList = new ArrayList<>();
+			paramList.add(new DoubleParameter("xh", (1 + stepSize), 3, stepSize));
+			eg = new EdgeGroup("highVars1", paramList.toArray(new Parameter[paramList.size()]), null, null, "$#xh#$");
+			s.addEdgeGroup(eg);
+			paramList = new ArrayList<>();
+			paramList.add(new DoubleParameter("xhh", (3 + stepSize), 5, stepSize));
+			eg = new EdgeGroup("veryhighVars1", paramList.toArray(new Parameter[paramList.size()]), null, null, "$#xhh#$");
+			s.addEdgeGroup(eg);
+			workflow.add(s);
+
+			s = new Step(this.logdb, this.runName);
+			paramList = new ArrayList<>();
+			paramList.add(new DoubleParameter("yll", -5, (-3 - stepSize), stepSize));
+			eg = new EdgeGroup("verylowVars2", paramList.toArray(new Parameter[paramList.size()]), null, null, "$#yll#$");
+			s.addEdgeGroup(eg);
+			paramList = new ArrayList<>();
+			paramList.add(new DoubleParameter("yl", -3, (-1 - stepSize), stepSize));
+			eg = new EdgeGroup("lowVars2", paramList.toArray(new Parameter[paramList.size()]), null, null, "$#yl#$");
+			s.addEdgeGroup(eg);
+			paramList = new ArrayList<>();
+			paramList.add(new DoubleParameter("ym", -1, 1, stepSize));
+			eg = new EdgeGroup("midVars2", paramList.toArray(new Parameter[paramList.size()]), null, null, "$#ym#$");
+			s.addEdgeGroup(eg);
+			paramList = new ArrayList<>();
+			paramList.add(new DoubleParameter("yh", (1 + stepSize), 3, stepSize));
+			eg = new EdgeGroup("highVars2", paramList.toArray(new Parameter[paramList.size()]), null, null, "$#yh#$");
+			s.addEdgeGroup(eg);
+			paramList = new ArrayList<>();
+			paramList.add(new DoubleParameter("yhh", (3 + stepSize), 5, stepSize));
+			eg = new EdgeGroup("veryhighVars2", paramList.toArray(new Parameter[paramList.size()]), null, null, "$#yhh#$");
+			s.addEdgeGroup(eg);
+			workflow.add(s);
+
+			logger.fine("Created new workflow with "+workflow.size()+" steps.");
+		}
+		return workflow;
+	}
+
+	@Override
 	protected void traverseEdge(Edge e, long configId) throws ExitCodeException {		
 		/*
 		 * The Rastrigin Function is a fairly complicated mathematical function often used as a 
@@ -40,65 +102,18 @@ public class RastriginWalker extends Walker {
 		 */
 
 		double A = 10;
-		//to keep the 1/x function between 0 and 1, aim for (number of variables *10)+1
 		String[] vals = e.getCommand().split(";");
 		for(String v : vals){
 			double x = Double.parseDouble(v);
-			fx += (Math.pow(x,2) - A*Math.cos(2*Math.PI*x) + A);
+			fx += 35;
+			fx -= (Math.pow(x,2) - A*Math.cos(2*Math.PI*x));
 		}
-	}
-	
-	@Override
-	protected Workflow getSteps() {
-		/* Workflow size:
-		 * Three steps with (20 + 20 + 20) edges each
-		 * 60^3 = 216000
-		 */
-		if(workflow == null){
-			workflow = new Workflow();
-
-			Step s = new Step(this.logdb, this.runName);
-			ArrayList<Parameter> paramList = new ArrayList<>();
-			paramList.add(new DoubleParameter("xl", -3, -1, 0.01));
-			EdgeGroup eg = new EdgeGroup("lowVars1", paramList.toArray(new Parameter[paramList.size()]), null, null, "$#xl#$");
-			s.addEdgeGroup(eg);
-			paramList = new ArrayList<>();
-			paramList.add(new DoubleParameter("xm", -1, 1, 0.01));
-			eg = new EdgeGroup("midVars1", paramList.toArray(new Parameter[paramList.size()]), null, null, "$#xm#$");
-			s.addEdgeGroup(eg);
-			paramList = new ArrayList<>();
-			paramList.add(new DoubleParameter("xh", 1, 3, 0.01));
-			eg = new EdgeGroup("highVars1", paramList.toArray(new Parameter[paramList.size()]), null, null, "$#xh#$");
-			s.addEdgeGroup(eg);
-			workflow.add(s);
-
-			s = new Step(this.logdb, this.runName);
-			paramList = new ArrayList<>();
-			paramList.add(new DoubleParameter("yl", -3, -1, 0.01));
-			eg = new EdgeGroup("lowVars2", paramList.toArray(new Parameter[paramList.size()]), null, null, "$#yl#$");
-			s.addEdgeGroup(eg);
-			paramList = new ArrayList<>();
-			paramList.add(new DoubleParameter("ym", -1, 1, 0.01));
-			eg = new EdgeGroup("midVars2", paramList.toArray(new Parameter[paramList.size()]), null, null, "$#ym#$");
-			s.addEdgeGroup(eg);
-			paramList = new ArrayList<>();
-			paramList.add(new DoubleParameter("yh", 1, 3, 0.01));
-			eg = new EdgeGroup("highVars2", paramList.toArray(new Parameter[paramList.size()]), null, null, "$#yh#$");
-			s.addEdgeGroup(eg);
-			workflow.add(s);
-
-			logger.fine("Created new workflow with "+workflow.size()+" steps.");
-		}
-		return workflow;
 	}
 
 	@Override
 	protected void submitResult(long configId) {
-		/* To convert the minima to a maxima, the function is lifted by 1 (to avoid dividing by zero)
-		 */
-		double score = 1.0/(fx + 1);
+		logdb.updateConfiguration(configId, ""+fx, runName);
 		fx = 0;
-		logdb.updateConfiguration(configId, ""+score, runName);
 	}
 	
 	@Override
@@ -121,6 +136,11 @@ public class RastriginWalker extends Walker {
 	@Override
 	protected void deleteWorkfiles(long configId) {
 		// ignore for this walker
+	}
+
+	@Override
+	protected boolean searchMaxima(){
+		return true;
 	}
 	
 }

@@ -25,10 +25,27 @@ public class AnnealingFunction {
         return ((current + mod)%all)+1;
     }
 
-    public static boolean compareConfigs(double currentScore, double candidateScore, double temperature){
+    /**
+     *
+     * @param currentScore The score of the currently accepted solution
+     * @param candidateScore The score of the candidate solution
+     * @param temperature Double value between 0 and 1. Higher temperature makes the algorithm more greedy
+     * @param searchMaxima If true, the acceptance chance will model the search for an maxima or else for a minima
+     * @return True if the candidate solution was accepted
+     */
+    public static boolean accept(double currentScore, double candidateScore, double temperature, boolean searchMaxima){
+        if(temperature < 0.0) {
+            temperature = 0.0;
+        }
+        if(temperature > 1.0) {
+            temperature = 1.0;
+        }
         tzero = tzero / (1+temperature);
         double delta = (candidateScore - currentScore);
-        double pa = Math.min(1, Math.exp(delta/tzero));
+        double pa = Math.min(1, Math.exp(-delta / tzero)); //default: search minima
+        if(searchMaxima) {
+            pa = Math.min(1, Math.exp(delta / tzero));
+        }
 
         Random generator = new Random();
         double selected = generator.nextDouble();

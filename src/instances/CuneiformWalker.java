@@ -81,4 +81,9 @@ public class CuneiformWalker extends Walker {
         // TODO
     }
 
+    @Override
+    protected boolean searchMaxima(){
+        return true;
+    }
+
 }

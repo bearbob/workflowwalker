@@ -145,7 +145,8 @@ abstract public class Walker {
 			}
 			//did not fail, has score:
 			double candidateScore = logdb.getScoreForConfig(runName, rootId);
-			boolean accepted = AnnealingFunction.compareConfigs(currentScore, candidateScore, ((double)run/(double)samples));
+			logdb.addSample(runName, rootId, candidateScore);
+			boolean accepted = AnnealingFunction.accept(currentScore, candidateScore, ((double)run/(double)samples), searchMaxima());
 			if(accepted){
 				current = candidate;
 				currentScore = candidateScore;
@@ -237,5 +238,11 @@ abstract public class Walker {
 	 * @param configId The id of the targeted configuration
 	 */
 	abstract protected void deleteWorkfiles(long configId);
+
+	/**
+	 * Defines the type of extrema the walker is searching for.
+	 * @return True, if a maxima is searched. False, if a minima is searched.
+	 */
+	abstract protected boolean searchMaxima();
 	
 }

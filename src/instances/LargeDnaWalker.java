@@ -495,4 +495,9 @@ public class LargeDnaWalker extends BashWalker {
 		return step;
 	}
 
+	@Override
+	protected boolean searchMaxima(){
+		return true;
+	}
+
 }
