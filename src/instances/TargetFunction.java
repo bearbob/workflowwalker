@@ -120,7 +120,7 @@ public class TargetFunction {
 				distance = commonSetSize / (Math.sqrt(variants.size()) * Math.sqrt(goldSetSize));
 			}
 			logger.fine("commonSetSize="+commonSetSize+", goldSetSize="+goldSetSize+" >> distance="+distance);
-			logdb.updateConfiguration(configId,  Double.toString(distance), runName);
+			logdb.updateConfiguration(configId,  distance, runName);
 			return;
 		}
 		//else
@@ -151,7 +151,7 @@ public class TargetFunction {
 	 * @param vectorBcomplete The score vector that was pulled from the database
 	 * @return Cosine distance between the two vectors as string
 	 */
-	private String calculateCosineDistance(double sumTop, double vectorA, ArrayList<Double> vectorBcomplete){
+	private double calculateCosineDistance(double sumTop, double vectorA, ArrayList<Double> vectorBcomplete){
 		/* Q: Why not two score vectors?
 		 * A: Only one is needed, the one from the database. The vector of the
 		 * submitted vcf has 1 for each variant and 0 for each one that is not included.
@@ -164,10 +164,9 @@ public class TargetFunction {
 		// vectorA is the number of all rows where a.i = 1
 		double score = sumTop / (Math.sqrt(vectorA) * Math.sqrt(normComplete));
 		//double score = Math.cos(grad);
-		String result = String.valueOf(score);
 		//TODO: current result 'sumTop=1744.0, normalComplete=42.36603304072753, score=41.16505310571441'
 		logger.finer("sumTop="+sumTop+", sqrt(vectorA)="+Math.sqrt(vectorA)+", sqrt(normalComplete)="+Math.sqrt(normComplete)+", score="+score);
-		return result;
+		return score;
 	}
 	
 	/**

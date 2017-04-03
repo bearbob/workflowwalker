@@ -14,7 +14,7 @@ import java.util.logging.Logger;
 
 import sampler.Parameter;
 import sampler.StringParameter;
-import sampler.Temperature;
+import sampler.AnnealingFunction;
 
 public class LogDB {
 	private static Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
@@ -27,7 +27,12 @@ public class LogDB {
 	private Connection c = null;
 	private String dbname;
 	private String searchType = "MAX";
+
+	//variables used for caching inside one run
 	private ArrayList<Long> configCache;
+	private double scoreMin = -1.0;
+	private double scoreMax = -1.0;
+
 
 	public LogDB(){
 		this("log.db");
@@ -142,6 +147,41 @@ public class LogDB {
 
 	/**
 	 * @param sql The sql select query that will be executed
+	 * @return An double value matching the request
+	 */
+	private double selectDouble(String sql){
+		double result = -13.37; //dummy value
+		Exception ex = null;
+		for(int i=0; i<NUMBEROFRETRIES; i++){
+			try{
+				connect();
+				c.setAutoCommit(false);
+				Statement stmt = c.createStatement();
+				ResultSet rs = stmt.executeQuery(sql);
+				if(rs.next()){
+					result = rs.getDouble(1);
+				}
+				rs.close();
+				stmt.close();
+				c.commit();
+				c.setAutoCommit(true);
+				return result;
+			}catch(Exception e){
+				logger.log(Level.WARNING, "SQL String: "+sql, e);
+				ex = e;
+				try{
+					Thread.sleep(RETRYTIMEMS * (i+1));
+				}catch(InterruptedException iex){
+					logger.finest("Thread was interrupted while waiting for a retry for sql select query.");
+				}
+			}
+		}
+		crash(ex);
+		return result;
+	}
+
+	/**
+	 * @param sql The sql select query that will be executed
 	 * @return An string value matching the request
 	 */
 	private String selectString(String sql){
@@ -198,7 +238,7 @@ public class LogDB {
 			createPlan.append(i);
 			createPlan.append("_id INTEGER NOT NULL,");
 		}
-		createPlan.append("score String DEFAULT '0', failed INTEGER DEFAULT -1);");
+		createPlan.append("score REAL DEFAULT 0, failed INTEGER DEFAULT -1);");
 		
 		StringBuilder createResults = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
 		createResults.append(runName);
@@ -280,7 +320,7 @@ public class LogDB {
 
 	}
 
-	public void addSample(String runName, long configId, String score){
+	public void addSample(String runName, long configId, double score){
 		connect();
 		StringBuilder sql = new StringBuilder("INSERT INTO ");
 		sql.append(runName);
@@ -633,7 +673,7 @@ public class LogDB {
 	 * @param id Identifier of the configuration in the table
 	 * @param score The new score for the configuration
 	 */
-	public void updateConfiguration(long id, String score, String runName){
+	public void updateConfiguration(long id, double score, String runName){
 		// assumes that the user gives the correct number of values in the string
 		connect();
 		StringBuilder sql = new StringBuilder("UPDATE ");
@@ -644,6 +684,14 @@ public class LogDB {
 		sql.append("', failed=0 WHERE id=");
 		sql.append(id);
 		logger.info("Update configuration: "+sql.toString());
+
+		//set new min and max scores
+		if(score > this.scoreMax){
+			this.scoreMax = score;
+		}
+		if(score < this.scoreMin){
+			this.scoreMin = score;
+		}
 		
 		this.executeUpdate(sql.toString());
 	}
@@ -653,12 +701,12 @@ public class LogDB {
 	 * @param runName The name of the current sampler run
 	 * @return The score of the configuration or '-1' if something went wrong(i.e. the configuration failed and has no score)
 	 */
-	public String getScoreForConfig(String runName, long configId){
+	public double getScoreForConfig(String runName, long configId){
 		String sql = "SELECT score FROM " + runName + TABLEconfig + " WHERE failed=0 AND id = "+configId;
-		String result = this.selectString(sql);
-		if(result.isEmpty()){
+		double result = this.selectDouble(sql);
+		if(result < 0){
 			//can happen if configuration does not exist or failed and has no score
-			result = "-1";
+			result = -1.0;
 		}
 		logger.finer("Run '"+runName+"', config "+ configId +" has score "+result);
 		return result;
@@ -1154,10 +1202,12 @@ public class LogDB {
 	 * @param edgeName The name of the edgegroup
 	 * @param p The parameter object to run the query for
 	 * @param maxValueId The id of the parameter value up to which the edges are considered
+	 * @param temperature
+	 * @param currentScore
 	 * @return Returns a value pair, containing the number of elements as key and the max scoresum for these
 	 * elements as value {#Elements, Max Score}
 	 */
-	public ValuePair getScoreSumForParamRange(String runName, int step, ArrayList<ValuePair> previous, String edgeName, Parameter p, long maxValueId, double temperature){
+	public ValuePair getScoreSumForParamRange(String runName, int step, ArrayList<ValuePair> previous, String edgeName, Parameter p, long maxValueId, double temperature, double currentScore){
 		// SELECT the avg scores for each edge for this step matching the filter criteria
 		StringBuilder sql = new StringBuilder("SELECT ");
 		sql.append(searchType);
@@ -1237,7 +1287,7 @@ public class LogDB {
 				while(rs.next()) {
 					hits += rs.getInt(2);
 					ValuePair vp = new ValuePair("null", rs.getString(1));
-					sum += Temperature.getRelativeScoreForElement(vp, temperature, position, p.getNumberOfPossibilities());
+					sum += AnnealingFunction.getRelativeScoreForElement(vp, temperature, this.getScoreRange(runName), currentScore);
 					position++;
 				}
 				logger.finest("Hits: "+hits+" and sum: "+sum);
@@ -1262,6 +1312,22 @@ public class LogDB {
 		
 		return new ValuePair(""+hits, sum+"");
 		
+	}
+
+	public double getScoreRange(String runName){
+		double range = 13.37;
+		if(this.scoreMax < 0 || this.scoreMin < 0){
+			//not loaded yet
+			String min = "SELECT MIN(score) FROM "+runName+"_config WHERE failed=0;";
+			String max = "SELECT MAX(score) FROM "+runName+"_config WHERE failed=0;";
+			this.scoreMin = this.selectDouble(min);
+			if(this.scoreMin < 0){
+				logger.finest("No scores yet, unable to load min score. Using default range as return value.");
+				return range;
+			}
+			this.scoreMax = this.selectDouble(max);
+		}
+		return (this.scoreMax - this.scoreMin);
 	}
 	
 }
