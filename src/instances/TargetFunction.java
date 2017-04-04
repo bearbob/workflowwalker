@@ -180,6 +180,8 @@ public class TargetFunction {
 		ArrayList<Variant> list = new ArrayList<>();
 		ArrayList<String[]> annolist = new ArrayList<>();
 		ArrayList<Variant> tempList = new ArrayList<>();
+		int variantCounter = 0;
+
 		try (BufferedReader br = new BufferedReader(new FileReader(vcfPath))) {
 		    String line, chrom, pos;
 		    int firstTab;
@@ -187,7 +189,8 @@ public class TargetFunction {
 		    read:while ((line = br.readLine()) != null) {
 		    	if(line.isEmpty()) continue read; //skip empty lines
 		    	if(line.startsWith("#")) continue read;
-		    	
+
+		    	variantCounter++;
 		    	//get chromosom and position
 		    	firstTab = line.indexOf("\t");
 		    	secondTab = line.indexOf("\t", firstTab+1);
@@ -222,6 +225,9 @@ public class TargetFunction {
 	    			annolist.clear();
 		    	}
 	    	}
+	    	//at last submit the number of variants to the variant table
+			logdb.addVariantCount(runName, configId, variantCounter);
+
 		}catch(IOException ioe){
 			ioe.printStackTrace();
 			System.exit(5);

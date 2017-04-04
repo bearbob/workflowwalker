@@ -181,47 +181,21 @@ public class LogDB {
 	}
 
 	/**
-	 * @param sql The sql select query that will be executed
-	 * @return An string value matching the request
-	 */
-	private String selectString(String sql){
-		String result = ""; //dummy value
-		Exception ex = null;
-		for(int i=0; i<NUMBEROFRETRIES; i++){
-			try{
-				connect();
-				c.setAutoCommit(false);
-				Statement stmt = c.createStatement();
-				ResultSet rs = stmt.executeQuery(sql);
-				if(rs.next()){
-					result = rs.getString(1);
-				}
-				rs.close();
-				stmt.close();
-				c.commit();
-				c.setAutoCommit(true);
-				return result;
-			}catch(Exception e){
-				logger.log(Level.WARNING, "SQL String: "+sql, e);
-				ex = e;
-				try{
-					Thread.sleep(RETRYTIMEMS * (i+1));
-				}catch(InterruptedException iex){
-					logger.finest("Thread was interrupted while waiting for a retry for sql select query.");
-				}
-			}
-		}
-		crash(ex);
-		return result;
-	}
-	
-	/**
-	 * 
+	 * Prepare the database, create all necessary tables
 	 * @param stepNumber The number of steps in the path
 	 * @param runName The name of the current sampler run
-	 * @param includeGold Indicates if a gold table must be created
 	 */
-	public void prepareRun(int stepNumber, String runName, boolean includeGold){
+	public void prepareRun(int stepNumber, String runName) {
+		this.prepareRun(stepNumber, runName, false, false);
+	}
+	/**
+	 * Prepare the database, create all necessary tables
+	 * @param stepNumber The number of steps in the path
+	 * @param runName The name of the current sampler run
+	 * @param useVariants Indicates if variant tables are needed
+	 * @param useGold Indicates if a gold table is needed
+	 */
+	public void prepareRun(int stepNumber, String runName, boolean useVariants, boolean useGold){
 		// create a new table for the run if none exists
 		// user has to keep track of the naming by himself, using the same name for different
 		// runs will merge the runs and make the data confuse
@@ -239,6 +213,7 @@ public class LogDB {
 			createPlan.append("_id INTEGER NOT NULL,");
 		}
 		createPlan.append("score REAL DEFAULT 0, failed INTEGER DEFAULT -1);");
+		this.executeUpdate(createPlan.toString());
 		
 		StringBuilder createResults = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
 		createResults.append(runName);
@@ -250,12 +225,20 @@ public class LogDB {
 		createResults.append("`pos` TEXT NOT NULL, ");
 		createResults.append("`content` TEXT ");
 		createResults.append(");");
+		if(useVariants) this.executeUpdate(createResults.toString());
 
 		String createSample = "CREATE TABLE IF NOT EXISTS ";
 		createSample += runName;
-		createSample += "_sample ( `id` INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE, `configId` INTEGER NOT NULL, score String NOT NULL);";
-		
-		StringBuilder createAnnotated = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
+		createSample += "_sample ( `id` INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE, `configId` INTEGER NOT NULL, score REAL NOT NULL);";
+		this.executeUpdate(createSample);
+
+		// this table is used to store the number of variants, to make some operations faster later on
+		String createVariantCounter = "CREATE TABLE IF NOT EXISTS ";
+		createVariantCounter += runName;
+		createVariantCounter += "_variants ( `id` INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE, variants INTEGER NOT NULL);";
+		if(useVariants) this.executeUpdate(createVariantCounter);
+
+			StringBuilder createAnnotated = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
 		createAnnotated.append(runName);
 		createAnnotated.append(TABLEanno);
 		createAnnotated.append(" (");
@@ -268,30 +251,23 @@ public class LogDB {
 		createAnnotated.append("`code` TEXT NOT NULL, ");
 		createAnnotated.append("`quality` TEXT NOT NULL ");
 		createAnnotated.append(");");
+		if(useVariants) this.executeUpdate(createAnnotated.toString());
 
-		this.executeUpdate(createPlan.toString());
-		this.executeUpdate(createResults.toString());
-		this.executeUpdate(createAnnotated.toString());
-		this.executeUpdate(createSample);
+		StringBuilder createGold = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
+		createGold.append(runName);
+		createGold.append(TABLEgold);
+		createGold.append(" (");
+		createGold.append("`id` INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE,");
+		createGold.append("`chrom` TEXT NOT NULL, ");
+		createGold.append("`pos` TEXT NOT NULL, ");
+		createGold.append("`content` TEXT NOT NULL");
+		createGold.append(")");
+		if(useGold) this.executeUpdate(createGold.toString());
+
 		logger.fine("Tables created.");
-				
 		
-		if(includeGold) createGoldTable(runName);
 	}
-	
-	private void createGoldTable(String runName){
-		StringBuilder createResults = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
-		createResults.append(runName);
-		createResults.append(TABLEgold);
-		createResults.append(" (");
-		createResults.append("`id` INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE,");
-		createResults.append("`chrom` TEXT NOT NULL, ");
-		createResults.append("`pos` TEXT NOT NULL, ");
-		createResults.append("`content` TEXT NOT NULL");
-		createResults.append(")");
-		
-		this.executeUpdate(createResults.toString());
-	}
+
 	
 	/**
 	 * Creates a table for the given edgegroup, if none exists yet
@@ -320,6 +296,12 @@ public class LogDB {
 
 	}
 
+	/**
+	 *
+	 * @param runName The name of the current sampler run
+	 * @param configId The id of the config that created the score
+	 * @param score The target function score
+	 */
 	public void addSample(String runName, long configId, double score){
 		connect();
 		StringBuilder sql = new StringBuilder("INSERT INTO ");
@@ -329,6 +311,27 @@ public class LogDB {
 		sql.append(configId);
 		sql.append(", ");
 		sql.append(score);
+		sql.append(")");
+
+		this.executeUpdate(sql.toString());
+	}
+
+	/**
+	 * Adds the number of variants found in the result of the workflow
+	 * that was run with the given configuration
+	 * @param runName The name of the current sampler run
+	 * @param configId The id of the config that created the variants
+	 * @param variantCounter The number of variants
+	 */
+	public void addVariantCount(String runName, long configId, int variantCounter){
+		connect();
+		StringBuilder sql = new StringBuilder("INSERT INTO ");
+		sql.append(runName);
+		sql.append("_variants ( id, variants ) VALUES ");
+		sql.append("(");
+		sql.append(configId);
+		sql.append(", ");
+		sql.append(variantCounter);
 		sql.append(")");
 
 		this.executeUpdate(sql.toString());
@@ -814,7 +817,7 @@ public class LogDB {
 	/**
 	 * 
 	 * @param runName The name of the current sampler run
-	 * @return An list containing the ids of all configurations (that are not marked as failed)
+	 * @return A list containing the ids of all configurations (that are not marked as failed)
 	 */
 	public ArrayList<Long> getConfigurations(String runName){
 		if(configCache.size() > 0){
@@ -926,8 +929,11 @@ public class LogDB {
 	}
 
 	/**
+	 * Calculate the sum of values of variant occurences
+	 * This means for each variant found by the config, get the number of
+	 * occurences of this variant in the result database
 	 * @param runName The name of the current sampler run
-	 * @param configId
+	 * @param configId The id of the config that created the variants
 	 * @return
 	 */
 	public int getCommonVariantSumForConfig(String runName, long configId){
@@ -950,17 +956,12 @@ public class LogDB {
 
 	/**
 	 * @param runName The name of the current sampler run
-	 * @param configId
-	 * @return
+	 * @param configId The id of the config that created the variants
+	 * @return The number of variants created by the config
 	 */
 	public int getNumberOfVariantsForConfig(String runName, long configId){
-		StringBuilder sql = new StringBuilder();
-		sql.append("SELECT COUNT(*) FROM ");
-		sql.append(runName);
-		sql.append(TABLEresults);
-		sql.append(" WHERE configId = ");
-		sql.append(configId);
-		return this.selectInteger(sql.toString());
+		String sql =  "SELECT variants FROM "+runName+"_variants WHERE id = "+configId;
+		return this.selectInteger(sql);
 	}
 
 	
@@ -994,8 +995,11 @@ public class LogDB {
 		}
 		return result;	
 	}
-	
-	
+
+	/**
+	 * Drops the temporary table with the given name
+	 * @param tempName
+	 */
 	private void dropTemp(String tempName){
 		String sql = "DROP TABLE IF EXISTS "+tempName;
 		this.executeUpdate(sql);
@@ -1081,14 +1085,14 @@ public class LogDB {
 	 */
 	public boolean hasVariants(String runName, boolean gold){
 		boolean result = false;
-		StringBuilder sql = new StringBuilder("SELECT COUNT() FROM ");
+		StringBuilder sql = new StringBuilder("SELECT count(*) FROM (SELECT 1 FROM ");
 		sql.append(runName);
 		if(gold){
 			sql.append(TABLEgold);
 		}else{
 			sql.append(TABLEresults);
 		}
-		sql.append(" LIMIT 1;");
+		sql.append(" LIMIT 1);");
 		logger.fine(sql.toString());
 		
 		int count = this.selectInteger(sql.toString());
@@ -1119,8 +1123,7 @@ public class LogDB {
 	}
 	
 	/**
-	 * Retrieve a list of scores for all edge groups available for this step
-	 * from the database
+	 * Retrieve a list of scores for all edge groups available for this step from the database
 	 * @param runName The name of the current sampler run
 	 * @param step The id of the step in the workflow
 	 * @param previous A list of value pairs containing all decisions previously made for the current path {edgeGroup, edgeId}

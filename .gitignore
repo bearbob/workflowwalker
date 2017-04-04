@@ -4,3 +4,5 @@
 logs/
 .idea/
 dist/
+
+dist/workflowwalker.jar
