@@ -120,7 +120,7 @@ public class TargetFunction {
 				distance = commonSetSize / (Math.sqrt(variants.size()) * Math.sqrt(goldSetSize));
 			}
 			logger.fine("commonSetSize="+commonSetSize+", goldSetSize="+goldSetSize+" >> distance="+distance);
-			logdb.updateConfiguration(configId,  Double.toString(distance), runName);
+			logdb.updateConfiguration(configId,  distance, runName);
 			return;
 		}
 		//else
@@ -151,7 +151,7 @@ public class TargetFunction {
 	 * @param vectorBcomplete The score vector that was pulled from the database
 	 * @return Cosine distance between the two vectors as string
 	 */
-	private String calculateCosineDistance(double sumTop, double vectorA, ArrayList<Double> vectorBcomplete){
+	private double calculateCosineDistance(double sumTop, double vectorA, ArrayList<Double> vectorBcomplete){
 		/* Q: Why not two score vectors?
 		 * A: Only one is needed, the one from the database. The vector of the
 		 * submitted vcf has 1 for each variant and 0 for each one that is not included.
@@ -164,10 +164,9 @@ public class TargetFunction {
 		// vectorA is the number of all rows where a.i = 1
 		double score = sumTop / (Math.sqrt(vectorA) * Math.sqrt(normComplete));
 		//double score = Math.cos(grad);
-		String result = String.valueOf(score);
 		//TODO: current result 'sumTop=1744.0, normalComplete=42.36603304072753, score=41.16505310571441'
 		logger.finer("sumTop="+sumTop+", sqrt(vectorA)="+Math.sqrt(vectorA)+", sqrt(normalComplete)="+Math.sqrt(normComplete)+", score="+score);
-		return result;
+		return score;
 	}
 	
 	/**
@@ -181,6 +180,8 @@ public class TargetFunction {
 		ArrayList<Variant> list = new ArrayList<>();
 		ArrayList<String[]> annolist = new ArrayList<>();
 		ArrayList<Variant> tempList = new ArrayList<>();
+		int variantCounter = 0;
+
 		try (BufferedReader br = new BufferedReader(new FileReader(vcfPath))) {
 		    String line, chrom, pos;
 		    int firstTab;
@@ -188,7 +189,8 @@ public class TargetFunction {
 		    read:while ((line = br.readLine()) != null) {
 		    	if(line.isEmpty()) continue read; //skip empty lines
 		    	if(line.startsWith("#")) continue read;
-		    	
+
+		    	variantCounter++;
 		    	//get chromosom and position
 		    	firstTab = line.indexOf("\t");
 		    	secondTab = line.indexOf("\t", firstTab+1);
@@ -223,6 +225,9 @@ public class TargetFunction {
 	    			annolist.clear();
 		    	}
 	    	}
+	    	//at last submit the number of variants to the variant table
+			logdb.addVariantCount(runName, configId, variantCounter);
+
 		}catch(IOException ioe){
 			ioe.printStackTrace();
 			System.exit(5);

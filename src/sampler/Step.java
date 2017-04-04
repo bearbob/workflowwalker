@@ -60,7 +60,7 @@ public class Step {
 	 * @param temperature The current value of the temperature variable. The higher the temperature, the more the probabilities will drift from each other
 	 * @return The chosen edge
 	 */
-	protected Edge chooseNewEdge(ArrayList<Edge> previous, double temperature){
+	protected Edge chooseNewEdge(ArrayList<Edge> previous, double temperature, double currentScore){
 		// get the information about previous decisions and save it in value pairs
 		ArrayList<ValuePair> history;
 		if(previous != null && previous.size() > 0){
@@ -84,7 +84,7 @@ public class Step {
 			double pointer = 0.0;
 			ArrayList<ValuePair> groupScores = logdb.getEdgeGroupScores(runName, ID, history);
 			//get the total sum of scores for all edge groups that have been visited
-			double groupSum = Temperature.getRelativeScoreSum(groupScores, temperature);
+			double groupSum = AnnealingFunction.getRelativeScoreSum(groupScores, temperature, logdb.getScoreRange(runName), currentScore);
 
 			//create temporary list to remove elements from, to make the selection faster for many groups
 			ArrayList<ValuePair> tempScores = new ArrayList<>();
@@ -97,7 +97,7 @@ public class Step {
 					ValuePair vp = tempScores.get(j);
 					if(vp.getName().equals(groupList.get(i).getGroupName())){
 						//P = ownScore/AllVisitedScore * numVisited/all
-						double score = Temperature.getRelativeScoreForElement(vp, temperature, j, groupScores.size());
+						double score = AnnealingFunction.getRelativeScoreForElement(vp, temperature, logdb.getScoreRange(runName), currentScore);
 						pointer += (score/groupSum) * ((double)groupScores.size()/groupList.size());
 						visited = true;
 						//dont search further trough the group scores
@@ -134,7 +134,7 @@ public class Step {
 			}
 			// value pair <Amount of visited edges, maximum score sum for these edges>
 			ValuePair vpAll = logdb.getScoreSumForParamRange(runName, ID, history,
-					groupList.get(chosenGroup).getGroupName(), plist[i], plist[i].getMaxId(), temperature);
+					groupList.get(chosenGroup).getGroupName(), plist[i], plist[i].getMaxId(), temperature, currentScore);
 			
 			int visitedAll = Integer.parseInt(vpAll.getName());
 			double scoreAll = Double.parseDouble(vpAll.getValue());
@@ -148,7 +148,7 @@ public class Step {
 				//find new middle
 				m = (left + right)/2;
 				logger.finest("New target m="+m+" (left: "+left+"; right: "+right+")");
-				ValuePair vp = logdb.getScoreSumForParamRange(runName, ID, history, groupList.get(chosenGroup).getGroupName(), plist[i], m, temperature);
+				ValuePair vp = logdb.getScoreSumForParamRange(runName, ID, history, groupList.get(chosenGroup).getGroupName(), plist[i], m, temperature, currentScore);
 				logger.finest( "compare = (("+(m+1)+" - "+Integer.parseInt(vp.getName())+"))/"+(double)edgesAll+") + ("+visitedMultiply+" * "+Double.parseDouble(vp.getValue())+")");
 				// m is not the number of edges, but m=(edges -1)
 				compare = (((m+1) - Integer.parseInt(vp.getName()))/(double)edgesAll) + (visitedMultiply * Double.parseDouble(vp.getValue()));
@@ -158,7 +158,7 @@ public class Step {
 				}else if(compare > randomValue){
 					// check if the last element has a smaller compare value
 					if(m>0){
-						vp = logdb.getScoreSumForParamRange(runName, ID, history, groupList.get(chosenGroup).getGroupName(), plist[i], (m-1), temperature);
+						vp = logdb.getScoreSumForParamRange(runName, ID, history, groupList.get(chosenGroup).getGroupName(), plist[i], (m-1), temperature, currentScore);
 						compare = ((m - Integer.parseInt(vp.getName()))/(double)edgesAll) + (visitedMultiply * Double.parseDouble(vp.getValue()));
 					}else{
 						//no left element exists, if m is already the leftmost

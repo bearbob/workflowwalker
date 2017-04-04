@@ -45,6 +45,8 @@ abstract public class Walker {
 		}
 
 		long time = 0;
+		double currentScore = 0.0;
+		double candidateScore = 0.0;
 
 		sampling:for(int run=1; run<=samples; run++){
 			logger.info("Started sample run "+run);
@@ -55,7 +57,7 @@ abstract public class Walker {
 			for(Step step : steps){
 				logger.finest("Choose new Edge for step "+step.getId());
 				double temperature = ((double)run)/ samples;
-				Edge e = step.chooseNewEdge(workflow, temperature);
+				Edge e = step.chooseNewEdge(workflow, temperature, currentScore);
 				workflow.add(e);
 				logger.finest("Adding edge "+e.getGroupName()+" with ID "+e.getIdAsString()+" to workflow.");
 				config.add(new ValuePair(e.getGroupName(), e.getIdAsString()));
@@ -105,7 +107,12 @@ abstract public class Walker {
 			if(result != 0){
 				logdb.failConfiguration(rootId, runName, result);
 			}else{
-				logdb.addSample(runName, rootId, logdb.getScoreForConfig(runName, rootId));
+				candidateScore = logdb.getScoreForConfig(runName, rootId);
+				logdb.addSample(runName, rootId, candidateScore);
+				boolean accepted = AnnealingFunction.acceptScore(currentScore, candidateScore, ((double)run/samples));
+				if(accepted){
+					currentScore = candidateScore;
+				}
 			}
 			long resultTime = System.currentTimeMillis() - start;
 			String timer = String.format("%d min, %d sec", 

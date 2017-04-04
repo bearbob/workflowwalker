@@ -14,7 +14,7 @@ import java.util.logging.Logger;
 
 import sampler.Parameter;
 import sampler.StringParameter;
-import sampler.Temperature;
+import sampler.AnnealingFunction;
 
 public class LogDB {
 	private static Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
@@ -27,7 +27,12 @@ public class LogDB {
 	private Connection c = null;
 	private String dbname;
 	private String searchType = "MAX";
+
+	//variables used for caching inside one run
 	private ArrayList<Long> configCache;
+	private double scoreMin = -1.0;
+	private double scoreMax = -1.0;
+
 
 	public LogDB(){
 		this("log.db");
@@ -142,10 +147,10 @@ public class LogDB {
 
 	/**
 	 * @param sql The sql select query that will be executed
-	 * @return An string value matching the request
+	 * @return An double value matching the request
 	 */
-	private String selectString(String sql){
-		String result = ""; //dummy value
+	private double selectDouble(String sql){
+		double result = -13.37; //dummy value
 		Exception ex = null;
 		for(int i=0; i<NUMBEROFRETRIES; i++){
 			try{
@@ -154,7 +159,7 @@ public class LogDB {
 				Statement stmt = c.createStatement();
 				ResultSet rs = stmt.executeQuery(sql);
 				if(rs.next()){
-					result = rs.getString(1);
+					result = rs.getDouble(1);
 				}
 				rs.close();
 				stmt.close();
@@ -174,14 +179,23 @@ public class LogDB {
 		crash(ex);
 		return result;
 	}
-	
+
 	/**
-	 * 
+	 * Prepare the database, create all necessary tables
 	 * @param stepNumber The number of steps in the path
 	 * @param runName The name of the current sampler run
-	 * @param includeGold Indicates if a gold table must be created
 	 */
-	public void prepareRun(int stepNumber, String runName, boolean includeGold){
+	public void prepareRun(int stepNumber, String runName) {
+		this.prepareRun(stepNumber, runName, false, false);
+	}
+	/**
+	 * Prepare the database, create all necessary tables
+	 * @param stepNumber The number of steps in the path
+	 * @param runName The name of the current sampler run
+	 * @param useVariants Indicates if variant tables are needed
+	 * @param useGold Indicates if a gold table is needed
+	 */
+	public void prepareRun(int stepNumber, String runName, boolean useVariants, boolean useGold){
 		// create a new table for the run if none exists
 		// user has to keep track of the naming by himself, using the same name for different
 		// runs will merge the runs and make the data confuse
@@ -198,7 +212,8 @@ public class LogDB {
 			createPlan.append(i);
 			createPlan.append("_id INTEGER NOT NULL,");
 		}
-		createPlan.append("score String DEFAULT '0', failed INTEGER DEFAULT -1);");
+		createPlan.append("score REAL DEFAULT 0, failed INTEGER DEFAULT -1);");
+		this.executeUpdate(createPlan.toString());
 		
 		StringBuilder createResults = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
 		createResults.append(runName);
@@ -210,12 +225,20 @@ public class LogDB {
 		createResults.append("`pos` TEXT NOT NULL, ");
 		createResults.append("`content` TEXT ");
 		createResults.append(");");
+		if(useVariants) this.executeUpdate(createResults.toString());
 
 		String createSample = "CREATE TABLE IF NOT EXISTS ";
 		createSample += runName;
-		createSample += "_sample ( `id` INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE, `configId` INTEGER NOT NULL, score String NOT NULL);";
-		
-		StringBuilder createAnnotated = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
+		createSample += "_sample ( `id` INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE, `configId` INTEGER NOT NULL, score REAL NOT NULL);";
+		this.executeUpdate(createSample);
+
+		// this table is used to store the number of variants, to make some operations faster later on
+		String createVariantCounter = "CREATE TABLE IF NOT EXISTS ";
+		createVariantCounter += runName;
+		createVariantCounter += "_variants ( `id` INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE, variants INTEGER NOT NULL);";
+		if(useVariants) this.executeUpdate(createVariantCounter);
+
+			StringBuilder createAnnotated = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
 		createAnnotated.append(runName);
 		createAnnotated.append(TABLEanno);
 		createAnnotated.append(" (");
@@ -228,30 +251,23 @@ public class LogDB {
 		createAnnotated.append("`code` TEXT NOT NULL, ");
 		createAnnotated.append("`quality` TEXT NOT NULL ");
 		createAnnotated.append(");");
+		if(useVariants) this.executeUpdate(createAnnotated.toString());
 
-		this.executeUpdate(createPlan.toString());
-		this.executeUpdate(createResults.toString());
-		this.executeUpdate(createAnnotated.toString());
-		this.executeUpdate(createSample);
+		StringBuilder createGold = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
+		createGold.append(runName);
+		createGold.append(TABLEgold);
+		createGold.append(" (");
+		createGold.append("`id` INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE,");
+		createGold.append("`chrom` TEXT NOT NULL, ");
+		createGold.append("`pos` TEXT NOT NULL, ");
+		createGold.append("`content` TEXT NOT NULL");
+		createGold.append(")");
+		if(useGold) this.executeUpdate(createGold.toString());
+
 		logger.fine("Tables created.");
-				
 		
-		if(includeGold) createGoldTable(runName);
 	}
-	
-	private void createGoldTable(String runName){
-		StringBuilder createResults = new StringBuilder("CREATE TABLE IF NOT EXISTS ");
-		createResults.append(runName);
-		createResults.append(TABLEgold);
-		createResults.append(" (");
-		createResults.append("`id` INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE,");
-		createResults.append("`chrom` TEXT NOT NULL, ");
-		createResults.append("`pos` TEXT NOT NULL, ");
-		createResults.append("`content` TEXT NOT NULL");
-		createResults.append(")");
-		
-		this.executeUpdate(createResults.toString());
-	}
+
 	
 	/**
 	 * Creates a table for the given edgegroup, if none exists yet
@@ -280,7 +296,13 @@ public class LogDB {
 
 	}
 
-	public void addSample(String runName, long configId, String score){
+	/**
+	 *
+	 * @param runName The name of the current sampler run
+	 * @param configId The id of the config that created the score
+	 * @param score The target function score
+	 */
+	public void addSample(String runName, long configId, double score){
 		connect();
 		StringBuilder sql = new StringBuilder("INSERT INTO ");
 		sql.append(runName);
@@ -289,6 +311,27 @@ public class LogDB {
 		sql.append(configId);
 		sql.append(", ");
 		sql.append(score);
+		sql.append(")");
+
+		this.executeUpdate(sql.toString());
+	}
+
+	/**
+	 * Adds the number of variants found in the result of the workflow
+	 * that was run with the given configuration
+	 * @param runName The name of the current sampler run
+	 * @param configId The id of the config that created the variants
+	 * @param variantCounter The number of variants
+	 */
+	public void addVariantCount(String runName, long configId, int variantCounter){
+		connect();
+		StringBuilder sql = new StringBuilder("INSERT INTO ");
+		sql.append(runName);
+		sql.append("_variants ( id, variants ) VALUES ");
+		sql.append("(");
+		sql.append(configId);
+		sql.append(", ");
+		sql.append(variantCounter);
 		sql.append(")");
 
 		this.executeUpdate(sql.toString());
@@ -633,7 +676,7 @@ public class LogDB {
 	 * @param id Identifier of the configuration in the table
 	 * @param score The new score for the configuration
 	 */
-	public void updateConfiguration(long id, String score, String runName){
+	public void updateConfiguration(long id, double score, String runName){
 		// assumes that the user gives the correct number of values in the string
 		connect();
 		StringBuilder sql = new StringBuilder("UPDATE ");
@@ -644,6 +687,14 @@ public class LogDB {
 		sql.append("', failed=0 WHERE id=");
 		sql.append(id);
 		logger.info("Update configuration: "+sql.toString());
+
+		//set new min and max scores
+		if(score > this.scoreMax){
+			this.scoreMax = score;
+		}
+		if(score < this.scoreMin){
+			this.scoreMin = score;
+		}
 		
 		this.executeUpdate(sql.toString());
 	}
@@ -653,12 +704,12 @@ public class LogDB {
 	 * @param runName The name of the current sampler run
 	 * @return The score of the configuration or '-1' if something went wrong(i.e. the configuration failed and has no score)
 	 */
-	public String getScoreForConfig(String runName, long configId){
+	public double getScoreForConfig(String runName, long configId){
 		String sql = "SELECT score FROM " + runName + TABLEconfig + " WHERE failed=0 AND id = "+configId;
-		String result = this.selectString(sql);
-		if(result.isEmpty()){
+		double result = this.selectDouble(sql);
+		if(result < 0){
 			//can happen if configuration does not exist or failed and has no score
-			result = "-1";
+			result = -1.0;
 		}
 		logger.finer("Run '"+runName+"', config "+ configId +" has score "+result);
 		return result;
@@ -766,7 +817,7 @@ public class LogDB {
 	/**
 	 * 
 	 * @param runName The name of the current sampler run
-	 * @return An list containing the ids of all configurations (that are not marked as failed)
+	 * @return A list containing the ids of all configurations (that are not marked as failed)
 	 */
 	public ArrayList<Long> getConfigurations(String runName){
 		if(configCache.size() > 0){
@@ -878,8 +929,11 @@ public class LogDB {
 	}
 
 	/**
+	 * Calculate the sum of values of variant occurences
+	 * This means for each variant found by the config, get the number of
+	 * occurences of this variant in the result database
 	 * @param runName The name of the current sampler run
-	 * @param configId
+	 * @param configId The id of the config that created the variants
 	 * @return
 	 */
 	public int getCommonVariantSumForConfig(String runName, long configId){
@@ -902,17 +956,12 @@ public class LogDB {
 
 	/**
 	 * @param runName The name of the current sampler run
-	 * @param configId
-	 * @return
+	 * @param configId The id of the config that created the variants
+	 * @return The number of variants created by the config
 	 */
 	public int getNumberOfVariantsForConfig(String runName, long configId){
-		StringBuilder sql = new StringBuilder();
-		sql.append("SELECT COUNT(*) FROM ");
-		sql.append(runName);
-		sql.append(TABLEresults);
-		sql.append(" WHERE configId = ");
-		sql.append(configId);
-		return this.selectInteger(sql.toString());
+		String sql =  "SELECT variants FROM "+runName+"_variants WHERE id = "+configId;
+		return this.selectInteger(sql);
 	}
 
 	
@@ -946,8 +995,11 @@ public class LogDB {
 		}
 		return result;	
 	}
-	
-	
+
+	/**
+	 * Drops the temporary table with the given name
+	 * @param tempName
+	 */
 	private void dropTemp(String tempName){
 		String sql = "DROP TABLE IF EXISTS "+tempName;
 		this.executeUpdate(sql);
@@ -1033,14 +1085,14 @@ public class LogDB {
 	 */
 	public boolean hasVariants(String runName, boolean gold){
 		boolean result = false;
-		StringBuilder sql = new StringBuilder("SELECT COUNT() FROM ");
+		StringBuilder sql = new StringBuilder("SELECT count(*) FROM (SELECT 1 FROM ");
 		sql.append(runName);
 		if(gold){
 			sql.append(TABLEgold);
 		}else{
 			sql.append(TABLEresults);
 		}
-		sql.append(" LIMIT 1;");
+		sql.append(" LIMIT 1);");
 		logger.fine(sql.toString());
 		
 		int count = this.selectInteger(sql.toString());
@@ -1071,8 +1123,7 @@ public class LogDB {
 	}
 	
 	/**
-	 * Retrieve a list of scores for all edge groups available for this step
-	 * from the database
+	 * Retrieve a list of scores for all edge groups available for this step from the database
 	 * @param runName The name of the current sampler run
 	 * @param step The id of the step in the workflow
 	 * @param previous A list of value pairs containing all decisions previously made for the current path {edgeGroup, edgeId}
@@ -1154,10 +1205,12 @@ public class LogDB {
 	 * @param edgeName The name of the edgegroup
 	 * @param p The parameter object to run the query for
 	 * @param maxValueId The id of the parameter value up to which the edges are considered
+	 * @param temperature
+	 * @param currentScore
 	 * @return Returns a value pair, containing the number of elements as key and the max scoresum for these
 	 * elements as value {#Elements, Max Score}
 	 */
-	public ValuePair getScoreSumForParamRange(String runName, int step, ArrayList<ValuePair> previous, String edgeName, Parameter p, long maxValueId, double temperature){
+	public ValuePair getScoreSumForParamRange(String runName, int step, ArrayList<ValuePair> previous, String edgeName, Parameter p, long maxValueId, double temperature, double currentScore){
 		// SELECT the avg scores for each edge for this step matching the filter criteria
 		StringBuilder sql = new StringBuilder("SELECT ");
 		sql.append(searchType);
@@ -1237,7 +1290,7 @@ public class LogDB {
 				while(rs.next()) {
 					hits += rs.getInt(2);
 					ValuePair vp = new ValuePair("null", rs.getString(1));
-					sum += Temperature.getRelativeScoreForElement(vp, temperature, position, p.getNumberOfPossibilities());
+					sum += AnnealingFunction.getRelativeScoreForElement(vp, temperature, this.getScoreRange(runName), currentScore);
 					position++;
 				}
 				logger.finest("Hits: "+hits+" and sum: "+sum);
@@ -1262,6 +1315,22 @@ public class LogDB {
 		
 		return new ValuePair(""+hits, sum+"");
 		
+	}
+
+	public double getScoreRange(String runName){
+		double range = 13.37;
+		if(this.scoreMax < 0 || this.scoreMin < 0){
+			//not loaded yet
+			String min = "SELECT MIN(score) FROM "+runName+"_config WHERE failed=0;";
+			String max = "SELECT MAX(score) FROM "+runName+"_config WHERE failed=0;";
+			this.scoreMin = this.selectDouble(min);
+			if(this.scoreMin < 0){
+				logger.finest("No scores yet, unable to load min score. Using default range as return value.");
+				return range;
+			}
+			this.scoreMax = this.selectDouble(max);
+		}
+		return (this.scoreMax - this.scoreMin);
 	}
 	
 }

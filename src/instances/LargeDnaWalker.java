@@ -21,6 +21,7 @@ public class LargeDnaWalker extends BashWalker {
 		result.add("fq2");
 		result.add("bwaidx");
 		result.add("bowtie2idx");
+		result.add("genomeDir");
 		result.add("dict");
 		result.add("fa");
 		result.add("fai");
@@ -174,6 +175,50 @@ public class LargeDnaWalker extends BashWalker {
 		
 		align.addEdgeGroup(bwa);
 
+		paramList = new ArrayList<>();
+		//add the parameters
+		//STAR aligner: alignments and seeding
+		paramList.add(new IntegerParameter("seedSearchStartLmax", 40, 60, 10));
+		paramList.add(new IntegerParameter("seedPerReadNmax", 800, 1200, 100));
+
+		//command definitions, inputs, outputs
+		ArrayList<String> starOneIn = new ArrayList<>();
+		starOneIn.add(getFile("fa"));
+		starOneIn.add(getFile("genomeDir"));
+		starOneIn.add(getFile("fq1"));
+		StringBuilder starOne = new StringBuilder("mkdir pass1");
+		starOne.append(System.getProperty("line.separator"));
+		starOne.append("cd pass1");
+		starOne.append(System.getProperty("line.separator"));
+		starOne.append("STAR --genomeDir ../");
+		starOne.append(getFile("genomeDir"));
+		starOne.append(" --readFilesIn ../"); //up one folder for files
+		starOne.append(getFile("fq1"));
+		//only add the second read file if the paired mode is active (default)
+		if(!this.isSingle()){
+			starOne.append(" ../");
+			starOne.append(getFile("fq2"));
+			starOneIn.add(getFile("fq2"));
+		}
+		starOne.append("  --runThreadN ");
+		starOne.append(THREADS);
+		starOne.append(" --scoreGap $#scoreGap#$ --scoreGapNoncan $#scoreGapNoncan#$ --scoreGapGCAG $#scoreGapGCAG#$ --scoreGapATAC $#scoreGapATAC#$ --scoreDelOpen $#scoreDelOpen#$ ");
+		starOne.append(" --scoreDelBase $#scoreDelBase#$ --scoreInsOpen $#scoreInsOpen#$ --scoreInsBase $#scoreInsBase#$ --seedSearchStartLmax $#seedSearchStartLmax#$ --seedPerReadNmax $#seedPerReadNmax#$");
+		starOne.append(System.getProperty("line.separator"));
+		starOne.append("samtools flagstat Aligned.out.sam");
+		starOne.append(System.getProperty("line.separator"));
+		starOne.append("mv Aligned.out.sam ../");
+		starOne.append(alignResult);
+		starOne.append(System.getProperty("line.separator"));
+		starOne.append("cd .."); //go back to the parent folder
+		EdgeGroup starAlign = new EdgeGroup("star",
+				paramList.toArray(new Parameter[paramList.size()]),
+				starOneIn.toArray(new String[starOneIn.size()]),
+				new String[]{alignResult},
+				starOne.toString());
+
+		align.addEdgeGroup(starAlign);
+
 
 		paramList = new ArrayList<>();
 		paramList.add(new IntegerParameter("seedlength", 10, 30, 5));
@@ -191,9 +236,6 @@ public class LargeDnaWalker extends BashWalker {
 		//params
 		bowtiwScript.append(" -L $#seedlength#$ -N $#mismatch#$ ");
 		// bowtiwScript.append(" -L $#seedlength#$ --mp $#mismatchMax#$,$#mismatchMin#$ ");
-		/* TODO: assuming the bowtie2idx files have this name as prefix
-		 *	Maybe add a variable key containing the name
-		 */
 		bowtiwScript.append(" -x bowtie2idx ");
 		//only add the second read file if the paired mode is active (default)
 		if(!this.isSingle()){
