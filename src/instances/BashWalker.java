@@ -55,7 +55,7 @@ abstract public class BashWalker extends Walker {
 
 		inputFiles = FileHandler.getInput(basedir, inputFile, getInputKeys());
 		SINGLE = !(inputFiles.containsKey("fq2"));
-		this.logdb.prepareRun(this.getSteps().size(), runName, (tf.getTarget() == TargetFunction.SIMILARITYgoldstandard));
+		this.logdb.prepareRun(this.getSteps().size(), runName, true, (tf.getTarget() == TargetFunction.SIMILARITYgoldstandard));
 		
 		if(tf.getTarget() == TargetFunction.SIMILARITYgoldstandard){
 			if(inputFiles.containsKey("gold")){

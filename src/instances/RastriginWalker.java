@@ -22,7 +22,7 @@ public class RastriginWalker extends Walker {
 	public RastriginWalker(LogDB logdb, String runName) {
 		super(logdb, runName);
 		logger.fine("Created new simple Function Walker instance");
-		this.logdb.prepareRun(this.getSteps().size(), runName, false);
+		this.logdb.prepareRun(this.getSteps().size(), runName);
 
 	}
 

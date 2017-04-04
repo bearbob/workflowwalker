@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/SimulatedAnnealingWalker.iml" filepath="$PROJECT_DIR$/SimulatedAnnealingWalker.iml" />
+      <module fileurl="file://$PROJECT_DIR$/WorkflowStructure.iml" filepath="$PROJECT_DIR$/WorkflowStructure.iml" />
     </modules>
   </component>
 </project>

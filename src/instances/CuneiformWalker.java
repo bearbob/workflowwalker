@@ -18,7 +18,7 @@ public class CuneiformWalker extends Walker {
     public CuneiformWalker(LogDB logdb, String runName) {
         super(logdb, runName);
         logger.fine("Created new Cuneiform walker instance");
-        this.logdb.prepareRun(this.getSteps().size(), runName, false);
+        this.logdb.prepareRun(this.getSteps().size(), runName, true, false);
 
     }
 
