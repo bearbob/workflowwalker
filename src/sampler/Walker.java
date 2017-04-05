@@ -178,7 +178,7 @@ abstract public class Walker {
 	 * Prepares all needed input files in the new execution enviroment
 	 * @param configId The id of the targeted configuration
 	 */
-	abstract protected void handleInputFiles(long configId);
+	abstract protected void handleInputFiles(long configId) throws ExitCodeException;
 	
 	/**
 	 * Prepares the cached files for the new execution enviroment

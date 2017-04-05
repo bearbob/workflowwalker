@@ -117,7 +117,7 @@ abstract public class BashWalker extends Walker {
 	}
 
 	@Override
-	protected void handleInputFiles(long configId) {
+	protected void handleInputFiles(long configId) throws ExitCodeException {
 		String execDir = getExecDir(configId);
 		Map<String, Input> fileStack = new HashMap<>();
 		fileStack.putAll(inputFiles);
@@ -139,11 +139,11 @@ abstract public class BashWalker extends Walker {
 				int exitValue = p.waitFor();
 				if(exitValue != 0){
 					logger.severe("Exit value for linking "+key+"("+fileStack.get(key).getFullInput()+") is " + exitValue);
-					throw new Exception("Error while linking, task could not be executed.");
+					throw new ExitCodeException(exitValue);
 				}
 			}catch(Exception ioe){
 				logger.log(Level.SEVERE, "Error while copying the input files as links to the exec folder", ioe);
-				System.exit(ExitCode.EXECUTEERROR);
+				throw new ExitCodeException(ExitCode.INPUTERROR);
 			}
 		}
 		
@@ -281,7 +281,7 @@ abstract public class BashWalker extends Walker {
 		        logger.fine("Changed the permissions of "+nuscript.getAbsolutePath()+" to 777, exit value: "+exit);
 		}catch(Exception ex){
 			logger.log(Level.SEVERE,"Exception while writing the script file for task "+e.getGroupName(), ex);
-			System.exit(ExitCode.PATHERROR);
+			throw new ExitCodeException(ExitCode.PATHERROR);
 		}
 		//create process and set working dir
 		Process p;
@@ -317,10 +317,10 @@ abstract public class BashWalker extends Walker {
 			tasklog.info("Exit value of task "+e.getGroupName()+" execute is " + exitValue);
 		}catch(IOException ioe){
 			logger.log(Level.SEVERE,"IOException while executing the script file for task "+e.getGroupName(), ioe);
-			System.exit(ExitCode.EXECUTEERROR);
+			throw new ExitCodeException(ExitCode.EXECUTEERROR);
 		} catch (InterruptedException ie) {
 			logger.log(Level.SEVERE,"InterruptedException while executing the script file for task "+e.getGroupName(), ie);
-			System.exit(ExitCode.EXECUTEERROR);
+			throw new ExitCodeException(ExitCode.EXECUTEERROR);
 		}
 		
 		//if exit code is 0, assert that all output files exist
@@ -330,15 +330,11 @@ abstract public class BashWalker extends Walker {
 					File f = new File(getExecDir(configId)+"/"+s);
 					if(!f.exists()){
 						logger.log(Level.SEVERE, "File assertion failed: output "+getExecDir(configId)+"/"+s+" not found in the directory for task "+e.getGroupName());
-			    		System.exit(ExitCode.INPUTERROR);
+						throw new ExitCodeException(ExitCode.INPUTERROR);
 					}
 				}
 			}
 		}else{
-			if(exitValue == ExitCode.COMMANDNOTFOUNDERROR){
-				logger.log(Level.SEVERE, "The called command was not found. Pipeline cannot be finished.");
-				System.exit(ExitCode.COMMANDNOTFOUNDERROR);
-			}
 			throw new ExitCodeException(exitValue);
 		}
 	}
