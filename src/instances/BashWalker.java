@@ -124,13 +124,13 @@ abstract public class BashWalker extends Walker {
 		
 		//TODO: add mkdir option to process call
 		// link the initial files that are needed for each run anyways
-		Process p = null;
-		maploop:for(String key : fileStack.keySet()){
+		Process p;
+		for(String key : fileStack.keySet()){
 			//create process and set working dir
 			File f = new File(this.baseDir +  fileStack.get(key).getFullInput());
 			if(!f.exists()) { 
 				logger.log(Level.FINER, "Assuming "+key+" to be a string variable, not creating a soft link.");
-				continue maploop;
+				continue;
 			}
 			ProcessBuilder pb = new ProcessBuilder("ln", "-snf", baseDir +  fileStack.get(key).getFullInput(), execDir + "/" + fileStack.get(key).getFileOnly());
 			logger.finest("Command: ln -snf "+baseDir+fileStack.get(key).getFullInput()+" "+execDir + "/" + fileStack.get(key).getFileOnly());
@@ -166,10 +166,10 @@ abstract public class BashWalker extends Walker {
 			logger.finest("Cache dir "+cachedConf+" exists, resuming cache handling...");
 		}
 		//add files from the cache to the input stack
-		steps:for(int i=0; i<lastCommonStep; i++){
+		for(int i=0; i<lastCommonStep; i++){
 			if(workflow[i].getOutputFiles() == null){
 				//skip if step has no outputs
-				continue steps;
+				continue;
 			}
 			for(String cacheFile : workflow[i].getOutputFiles()){
 				Input val = new Input(cachedConf+"/"+cacheFile);
@@ -305,7 +305,7 @@ abstract public class BashWalker extends Walker {
 		//run the task and catch the exit code
 		int exitValue = 0;
 		try{
-			Logger tasklog = startLogger(e.getGroupName());
+			Logger tasklog = startLogger(e.getGroupName(), configId);
 			p = pb.start();
 			BufferedReader reader = new BufferedReader(new InputStreamReader(p.getInputStream()));
 			String line;
@@ -346,7 +346,7 @@ abstract public class BashWalker extends Walker {
 	/**
 	 * Used to enable and configure logging for the run
 	 */
-	private static Logger startLogger(String taskname) throws IOException {
+	private Logger startLogger(String taskname, long configId) throws IOException {
 
 		LogManager.getLogManager().readConfiguration();
 		Logger log = Logger.getLogger(Logger.class.getName());
@@ -356,7 +356,12 @@ abstract public class BashWalker extends Walker {
 				log.removeHandler(old);
 			}
 		}
-		Handler handler = new java.util.logging.FileHandler( taskname+"."+(System.currentTimeMillis()/1000)+".log" );
+		StringBuilder logfile = new StringBuilder(this.getExecDir(configId));
+		logfile.append(taskname);
+		logfile.append(".");
+		logfile.append(System.currentTimeMillis()/1000);
+		logfile.append(".log");
+		Handler handler = new java.util.logging.FileHandler( logfile.toString());
 		handler.setFormatter(new SimpleFormatter());
 		log.addHandler( handler );
 
