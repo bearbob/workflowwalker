@@ -202,8 +202,7 @@ public class LargeDnaWalker extends BashWalker {
 		}
 		starOne.append("  --runThreadN ");
 		starOne.append(THREADS);
-		starOne.append(" --scoreGap $#scoreGap#$ --scoreGapNoncan $#scoreGapNoncan#$ --scoreGapGCAG $#scoreGapGCAG#$ --scoreGapATAC $#scoreGapATAC#$ --scoreDelOpen $#scoreDelOpen#$ ");
-		starOne.append(" --scoreDelBase $#scoreDelBase#$ --scoreInsOpen $#scoreInsOpen#$ --scoreInsBase $#scoreInsBase#$ --seedSearchStartLmax $#seedSearchStartLmax#$ --seedPerReadNmax $#seedPerReadNmax#$");
+		starOne.append(" --seedSearchStartLmax $#seedSearchStartLmax#$ --seedPerReadNmax $#seedPerReadNmax#$");
 		starOne.append(System.getProperty("line.separator"));
 		starOne.append("samtools flagstat Aligned.out.sam");
 		starOne.append(System.getProperty("line.separator"));
