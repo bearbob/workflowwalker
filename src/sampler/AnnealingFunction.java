@@ -12,6 +12,15 @@ import java.util.logging.Logger;
  */
 public class AnnealingFunction {
     protected static Logger logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
+    private Random generator;
+
+    public AnnealingFunction(long randomSeed){
+        generator = new Random(randomSeed);
+    }
+
+    public double nextDouble(){
+        return generator.nextDouble();
+    }
 
     /**
      *
@@ -19,7 +28,7 @@ public class AnnealingFunction {
      * @param temperature double value between 0 and 1, rising over time
      * @return
      */
-    public static double getRelativeScoreSum(ArrayList<ValuePair> scores, double temperature, double range, double currentScore){
+    public double getRelativeScoreSum(ArrayList<ValuePair> scores, double temperature, double range, double currentScore){
         double sum = 0.0;
         for(int i=0; i<scores.size(); i++){
             sum += getRelativeScoreForElement(scores.get(i), temperature, range, currentScore);
@@ -35,7 +44,7 @@ public class AnnealingFunction {
      * @param currentScore
      * @return
      */
-    public static double getRelativeScoreForElement(ValuePair vp, double temperature, double range, double currentScore){
+    public double getRelativeScoreForElement(ValuePair vp, double temperature, double range, double currentScore){
         double modifier = 2;
 
         double lowerArea = currentScore - (range * 0.5 * (1 - temperature));
@@ -45,7 +54,7 @@ public class AnnealingFunction {
 
         double score = Double.parseDouble(vp.getValue());
         double rescore;
-        if( score < lowerArea ) {
+        if( score <= lowerArea ) {
             rescore = 0;
         }else{
             rescore = ( score * Math.pow(modifier, (1+temperature)) );
@@ -53,13 +62,12 @@ public class AnnealingFunction {
         return rescore;
     }
 
-    public static boolean acceptScore(double currentScore, double candidateScore, double temperature){
+    public boolean acceptScore(double currentScore, double candidateScore, double temperature){
         double t = (1-temperature);
         double delta = candidateScore - currentScore;
         double pa = Math.min(1, Math.exp(delta/t));
 
-        Random generator = new Random();
-        double selected = generator.nextDouble();
+        double selected = nextDouble();
         logger.finer("Old value: "+currentScore+", new value: "+candidateScore+" - Acceptance chance: "+pa+", selected value: "+selected);
         if(selected < pa){
             return true;

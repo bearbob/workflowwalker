@@ -9,7 +9,7 @@ import sampler.*;
 public class RnaWalker extends BashWalker {
 	private int THREADS = 1; //Default
 	private Workflow workflow = null;
-	
+
 	public RnaWalker(LogDB logdb, String runName, String basedir, String inputFile, int threads, TargetFunction target) {
 		super(logdb, runName, basedir, inputFile, target, threads);
 	}

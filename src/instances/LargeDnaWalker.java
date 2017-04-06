@@ -332,8 +332,8 @@ public class LargeDnaWalker extends BashWalker {
 		script.append(getFile("mills"));
 		script.append(" -known ");
 		script.append(getFile("phase1"));
-		//script.append(" --maxIntervalSize $#maxIntervalSize#$ --minReadsAtLocus $#minReads#$ --windowSize $#windowSize#$");
-		EdgeGroup eg = new EdgeGroup("gatkCreatetarget", 
+		script.append(" --filter_reads_with_N_cigar"); //ignore reads with cigar operator N
+		EdgeGroup eg = new EdgeGroup("gatkCreatetarget",
 				null,
 				new String[]{"dedup.bam", getFile("fa"), getFile("fai"), getFile("dict"), getFile("mills"), getFile("mills_tbi"), getFile("phase1"), getFile("phase1_tbi")}, 
 				new String[]{"target_intervals.list"}, 

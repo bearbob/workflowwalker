@@ -24,9 +24,11 @@ public class LogDB {
 	private static final String TABLEresults = "_results";
 	private static final String TABLEanno = "_annotated_results";
 	private static final String TABLEgold = "_goldstandard";
+
 	private Connection c = null;
 	private String dbname;
 	private String searchType = "MAX";
+	private AnnealingFunction anne;
 
 	//variables used for caching inside one run
 	private ArrayList<Long> configCache;
@@ -34,14 +36,15 @@ public class LogDB {
 	private double scoreMax = -1.0;
 
 
-	public LogDB(){
-		this("log.db");
+	public LogDB(long randomSeed){
+		this("log.db", randomSeed);
 	}
 
-	public LogDB(String databasename){
+	public LogDB(String databasename, long randomSeed){
 		this.dbname = databasename;
 		connect();
 		configCache = new ArrayList<>();
+		anne = new AnnealingFunction(randomSeed);
 	}
 	
 	private void crash(Exception e){
@@ -75,6 +78,10 @@ public class LogDB {
 			logger.log(Level.SEVERE, "Crash in LogDB", e);
 			System.exit(ExitCode.UNKNOWNERROR);
 		}
+	}
+
+	public AnnealingFunction getAnne(){
+		return this.anne;
 	}
 	
 	/**
@@ -1290,7 +1297,7 @@ public class LogDB {
 				while(rs.next()) {
 					hits += rs.getInt(2);
 					ValuePair vp = new ValuePair("null", rs.getString(1));
-					sum += AnnealingFunction.getRelativeScoreForElement(vp, temperature, this.getScoreRange(runName), currentScore);
+					sum += anne.getRelativeScoreForElement(vp, temperature, this.getScoreRange(runName), currentScore);
 					position++;
 				}
 				logger.finest("Hits: "+hits+" and sum: "+sum);

@@ -14,7 +14,7 @@ import sampler.Walker;
 
 public class Main {
 	private static Logger logger;
-	private static final String VERSION = "1.45b";
+	private static final String VERSION = "1.46b";
 	//defaults
 	private static String runName = "dna";
 	private static String inputFile = "";
@@ -22,6 +22,7 @@ public class Main {
 	private static String dbname = "log.db"; //default name
 	private static int sampleNumber = 100;
 	private static int threadNumber = 1;
+	private static int randomSeed = 42;
 	
 	
 	public static void main(String[] args) {
@@ -60,25 +61,38 @@ public class Main {
 		}
 		logger.finest("Run name handled.");
 
-		if(nargs.contains("-s") || nargs.contains("--sample")){
-			int pos = Math.max(nargs.indexOf("-s"), nargs.indexOf("--sample"));
-			logger.fine("Position for -s or --sample: "+pos);
-			try{
-				String val = nargs.get(pos+1);
-				if(val.startsWith("-")){
-					showHelp("Value expected after sample option but next option found: "+val);
+		String[][] parameter = {
+				new String[]{"Seed", "seed", "seed"},
+				new String[]{"Threads", "t", "threads"},
+				new String[]{"Sample", "s", "sample"}
+		};
+		int[] pint = {randomSeed, threadNumber, sampleNumber};
+		for(int i=0; i<parameter.length; i++) {
+			String pattern1 = "-"+parameter[i][1];
+			String pattern2 = "--"+parameter[i][2];
+			if (nargs.contains(pattern1) || nargs.contains(pattern2)) {
+				int pos = Math.max(nargs.indexOf(pattern1), nargs.indexOf(pattern2));
+				logger.finest("Position for "+parameter[i][0]+" " + pos);
+				try {
+					String val = nargs.get(pos + 1);
+					if (val.startsWith("-")) {
+						showHelp("Value expected after "+parameter[i][0]+" option but next option found instead: " + val);
+					}
+					pint[i] = Integer.parseInt(val);
+					logger.finest(parameter[i][0]+" value: '" + randomSeed + "'");
+				} catch (IndexOutOfBoundsException ie) {
+					showHelp("Argument expected after seed option but none found.");
 				}
-				logger.finest("Sample value: '"+Integer.parseInt(val)+"'");
-				sampleNumber = Integer.parseInt(val);
-			}catch(IndexOutOfBoundsException ie){
-				showHelp("Argument expected after sample option but none found.");
 			}
+			logger.finest(parameter[i][0]+" handled.");
 		}
-		logger.finest("Sample number handled.");
+		randomSeed = pint[0];
+		threadNumber = pint[1];
+		sampleNumber = pint[2];
 
 		if(nargs.contains("-d") || nargs.contains("--database")){
 			int pos = Math.max(nargs.indexOf("-d"), nargs.indexOf("--database"));
-			logger.fine("Position for -d or --database: "+pos);
+			logger.finest("Position for -d or --database: "+pos);
 			try{
 				String val = nargs.get(pos+1);
 				if(val.startsWith("-")){
@@ -92,7 +106,7 @@ public class Main {
 		}
 		logger.finest("Database name handled.");
 
-		LogDB logdb = new LogDB(dbname);
+		LogDB logdb = new LogDB(dbname, randomSeed);
 		TargetFunction tf = new TargetFunction(logdb);
 
 		//this is for testing the walker with a simple command
@@ -132,21 +146,6 @@ public class Main {
 			}
 		}
 		logger.finest("Base path handled.");
-		
-		if(nargs.contains("-t") || nargs.contains("--threads")){
-			int pos = Math.max(nargs.indexOf("-t"), nargs.indexOf("--threads"));
-			logger.finer("Position for -t or --threads: "+pos);
-			try{
-				String val = nargs.get(pos+1);
-				if(val.startsWith("-")){
-					showHelp("Value expected after thread option but next option found: "+val);
-				}
-				logger.finest("Thread value: '"+Integer.parseInt(val)+"'");
-				threadNumber = Integer.parseInt(val);
-			}catch(IndexOutOfBoundsException ie){
-				showHelp("Argument expected after thread option but none found.");
-			}
-		}
 		
 		boolean useCache = true;
 		if(nargs.contains("--no-cache")){
@@ -198,22 +197,23 @@ public class Main {
 	}
 	
 	private static void showHelp(String error){
-		println("Simulated Annealing Workflow Parameter Sampler");
+		println("WorkflowWalker");
 		println("Version "+VERSION);
 		
 		println("\n Command args:");
 		println("\t-h (--help) to call this menu");
-		println("\t-d (--database) name of the database");
-		println("\t-i (--input) for the path to the input file");
-		println("\t-b (--base) to set the working path (default is '"+baseDir+"')");
-		println("\t-r (--run) to set the name of the run (default is '"+runName+"')");
-		println("\t-s (--sample) to set the number of samples (default is "+sampleNumber+")");
+		println("\t-d (--database) <name of the database>");
+		println("\t-i (--input) <inputfile> for the path to the input file");
+		println("\t-b (--base) <path> to set the working path (default is '"+baseDir+"')");
+		println("\t-r (--run) <name> to set the name of the run (default is '"+runName+"')");
+		println("\t-s (--sample) <number> to set the number of samples (default is "+sampleNumber+")");
 		println("\t--no-cache to deactivate the cache function (will not use old results for new pipelines)");
-		println("\t-t (--thread) to set the number of available threads (default is "+threadNumber+")");
+		println("\t-t (--thread) <number> to set the number of available threads (default is "+threadNumber+")");
 		println("\t--gold changes the target function from meta comparison (default) to comparison with a given gold standard");
 		println("\t--overwrite defines if any old variants from previous runs will be overwritten (default: off)");
 		println("\t--rna to use the GATK RNAseq workflow instead of the GATK DNA Variant Calling workflow.");
 		println("\t--anno to annotate the raw variants in the last step.");
+		println("\t-seed <number> to set the random seed. Default is "+randomSeed);
 		
 		println("\nRemember that the working path must be the parent directory of the following folders:");
 		println("\tinputs/");

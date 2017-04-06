@@ -77,14 +77,14 @@ public class Step {
 		 * But first: pick one of the available edge groups randomly, weighted by their best score
 		 */
 		int chosenGroup = 0; //default = first element
-		Random r = new Random();
-		double randomValue = r.nextDouble();
+		AnnealingFunction anne = logdb.getAnne();
+		double randomValue = anne.nextDouble();
 		if(this.groupList.size() > 1){
 			//only choose if there is an actual choice
 			double pointer = 0.0;
 			ArrayList<ValuePair> groupScores = logdb.getEdgeGroupScores(runName, ID, history);
 			//get the total sum of scores for all edge groups that have been visited
-			double groupSum = AnnealingFunction.getRelativeScoreSum(groupScores, temperature, logdb.getScoreRange(runName), currentScore);
+			double groupSum = anne.getRelativeScoreSum(groupScores, temperature, logdb.getScoreRange(runName), currentScore);
 
 			//create temporary list to remove elements from, to make the selection faster for many groups
 			ArrayList<ValuePair> tempScores = new ArrayList<>();
@@ -97,7 +97,7 @@ public class Step {
 					ValuePair vp = tempScores.get(j);
 					if(vp.getName().equals(groupList.get(i).getGroupName())){
 						//P = ownScore/AllVisitedScore * numVisited/all
-						double score = AnnealingFunction.getRelativeScoreForElement(vp, temperature, logdb.getScoreRange(runName), currentScore);
+						double score = anne.getRelativeScoreForElement(vp, temperature, logdb.getScoreRange(runName), currentScore);
 						pointer += (score/groupSum) * ((double)groupScores.size()/groupList.size());
 						visited = true;
 						//dont search further trough the group scores
@@ -124,7 +124,7 @@ public class Step {
 		
 		paramLoop:for(int i=0; i<plist.length; i++){
 			//start binary search for this parameter
-			randomValue = r.nextDouble();
+			randomValue = anne.nextDouble();
 			// amount of all edges for this decision
 			int edgesAll = plist[i].getNumberOfPossibilities();
 			if(edgesAll < 2){

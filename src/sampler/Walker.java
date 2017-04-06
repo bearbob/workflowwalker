@@ -16,7 +16,12 @@ abstract public class Walker {
 	protected boolean USECACHE = true;
 	protected LogDB logdb;
 	protected String runName;
-	
+
+	/**
+	 *
+	 * @param logdb
+	 * @param runName
+	 */
 	public Walker(LogDB logdb, String runName){
 		this.logdb = logdb;
 		this.runName = runName;
@@ -109,7 +114,7 @@ abstract public class Walker {
 			}else{
 				candidateScore = logdb.getScoreForConfig(runName, rootId);
 				logdb.addSample(runName, rootId, candidateScore);
-				boolean accepted = AnnealingFunction.acceptScore(currentScore, candidateScore, ((double)run/samples));
+				boolean accepted = logdb.getAnne().acceptScore(currentScore, candidateScore, ((double)run/samples));
 				if(accepted){
 					currentScore = candidateScore;
 				}

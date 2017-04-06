@@ -353,9 +353,10 @@ abstract public class BashWalker extends Walker {
 			}
 		}
 		StringBuilder logfile = new StringBuilder(this.getExecDir(configId));
+		logfile.append("/");
 		logfile.append(taskname);
-		logfile.append(".");
-		logfile.append(System.currentTimeMillis()/1000);
+		logfile.append(".conf");
+		logfile.append(configId);
 		logfile.append(".log");
 		Handler handler = new java.util.logging.FileHandler( logfile.toString());
 		handler.setFormatter(new SimpleFormatter());
