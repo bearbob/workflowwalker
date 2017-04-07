@@ -14,14 +14,6 @@
     </content>
     <orderEntry type="sourceFolder" forTests="false" />
     <orderEntry type="inheritedJdk" />
-    <orderEntry type="module-library">
-      <library name="sqlite-jdbc-3.8.11.2.jar">
-        <CLASSES>
-          <root url="jar://$MODULE_DIR$/library/sqlite-jdbc-3.8.11.2.jar!/" />
-        </CLASSES>
-        <JAVADOC />
-        <SOURCES />
-      </library>
-    </orderEntry>
+    <orderEntry type="library" name="sqlite-jdbc-3.16.1" level="project" />
   </component>
 </module>
