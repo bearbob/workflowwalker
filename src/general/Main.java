@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Random;
 import java.util.logging.*;
 import java.util.logging.FileHandler;
 
@@ -32,7 +33,7 @@ import sampler.Walker;
 
 public class Main {
 	private static Logger logger;
-	private static final String VERSION = "1.46b";
+	private static final String VERSION = "1.47b";
 	//defaults
 	private static String runName = "dna";
 	private static String inputFile = "";
@@ -40,15 +41,18 @@ public class Main {
 	private static String dbname = "log.db"; //default name
 	private static int sampleNumber = 100;
 	private static int threadNumber = 1;
-	private static int randomSeed = 42;
+	private static int randomSeed;
 	
 	
 	public static void main(String[] args) {
+		//generate a random int as seed, that can be replaced later on if the user wished to do so
+		Random rand = new Random();
+		randomSeed = rand.nextInt();
 		run(args);
 	}
 	
 	private static void run(String[] args) {
-		
+
 		ArrayList<String> nargs = new ArrayList<>(Arrays.asList(args));
 		if(nargs.contains("-h") || nargs.contains("--help")){
 			showHelp("");
@@ -64,20 +68,37 @@ public class Main {
 		}
 		logger.info("Given command string is: '"+builder.toString().trim()+"'");
 
-		//check for arguments
-		if(nargs.contains("-r") || nargs.contains("--run")){
-			int pos = Math.max(nargs.indexOf("-r"), nargs.indexOf("--run"));
-			try{
-				String val = nargs.get(pos+1);
-				if(val.startsWith("-")){
-					showHelp("Value expected after run option but next option found: "+val);
+
+		String[][] sparameter = {
+				new String[]{"Run name", "r", "run"},
+				new String[]{"Database name", "d", "database"},
+				new String[]{"Input file", "i", "input"},
+				new String[]{"Base path", "b", "base"}
+		};
+		String[] pstring = {runName, dbname, inputFile, baseDir};
+		for(int i=0; i<sparameter.length; i++) {
+			String pattern1 = "-"+sparameter[i][1];
+			String pattern2 = "--"+sparameter[i][2];
+			if (nargs.contains(pattern1) || nargs.contains(pattern2)) {
+				int pos = Math.max(nargs.indexOf(pattern1), nargs.indexOf(pattern2));
+				logger.finest("Position for "+sparameter[i][0]+" " + pos);
+				try {
+					String val = nargs.get(pos + 1);
+					if (val.startsWith("-")) {
+						showHelp("Value expected after "+sparameter[i][0]+" option but next option found instead: " + val);
+					}
+					pstring[i] = val;
+					logger.finest(sparameter[i][0]+" value: '" + pstring[i] + "'");
+				} catch (IndexOutOfBoundsException ie) {
+					showHelp("Argument expected after "+sparameter[i][0]+" option but none found.");
 				}
-				runName = val;
-			}catch(IndexOutOfBoundsException ie){
-				showHelp("Argument expected after run option but none found.");
 			}
+			logger.finest(sparameter[i][0]+" handled.");
 		}
-		logger.finest("Run name handled.");
+		runName = pstring[0];
+		dbname = pstring[1];
+		inputFile = pstring[2];
+		baseDir = pstring[3];
 
 		String[][] parameter = {
 				new String[]{"Seed", "seed", "seed"},
@@ -97,9 +118,9 @@ public class Main {
 						showHelp("Value expected after "+parameter[i][0]+" option but next option found instead: " + val);
 					}
 					pint[i] = Integer.parseInt(val);
-					logger.finest(parameter[i][0]+" value: '" + randomSeed + "'");
+					logger.finest(parameter[i][0]+" value: '" + pint[i] + "'");
 				} catch (IndexOutOfBoundsException ie) {
-					showHelp("Argument expected after seed option but none found.");
+					showHelp("Argument expected after "+parameter[i][0]+" option but none found.");
 				}
 			}
 			logger.finest(parameter[i][0]+" handled.");
@@ -107,22 +128,6 @@ public class Main {
 		randomSeed = pint[0];
 		threadNumber = pint[1];
 		sampleNumber = pint[2];
-
-		if(nargs.contains("-d") || nargs.contains("--database")){
-			int pos = Math.max(nargs.indexOf("-d"), nargs.indexOf("--database"));
-			logger.finest("Position for -d or --database: "+pos);
-			try{
-				String val = nargs.get(pos+1);
-				if(val.startsWith("-")){
-					showHelp("Value expected after database option but next option found: "+val);
-				}
-				logger.finest("Database name: '"+val+"'");
-				dbname = val;
-			}catch(IndexOutOfBoundsException ie){
-				showHelp("Argument expected after database option but none found.");
-			}
-		}
-		logger.finest("Database name handled.");
 
 		LogDB logdb = new LogDB(dbname, randomSeed);
 		TargetFunction tf = new TargetFunction(logdb);
@@ -134,36 +139,6 @@ public class Main {
 			test.sample(sampleNumber);
 			System.exit(0);
 		}
-
-		if(nargs.contains("-i") || nargs.contains("--input")){
-			int pos = Math.max(nargs.indexOf("-i"), nargs.indexOf("--input"));
-			try{
-				String val = nargs.get(pos+1);
-				if(val.startsWith("-")){
-					showHelp("Value expected after input option but next option found: "+val);
-				}
-				inputFile = val;
-			}catch(IndexOutOfBoundsException ie){
-				showHelp("Argument expected after input option but none found.");
-			}
-		}else{
-			showHelp("Missing input file as argument.");
-		}
-		logger.finest("Input file handled.");
-		
-		if(nargs.contains("-b") || nargs.contains("--base")){
-			int pos = Math.max(nargs.indexOf("-b"), nargs.indexOf("--base"));
-			try{
-				String val = nargs.get(pos+1);
-				if(val.startsWith("-")){
-					showHelp("Value expected after base option but next option found: "+val);
-				}
-				baseDir = val;
-			}catch(IndexOutOfBoundsException ie){
-				showHelp("Argument expected after base option but none found.");
-			}
-		}
-		logger.finest("Base path handled.");
 		
 		boolean useCache = true;
 		if(nargs.contains("--no-cache")){
@@ -213,11 +188,11 @@ public class Main {
 		}
 
 	}
-	
+
 	private static void showHelp(String error){
 		println("WorkflowWalker");
 		println("Version "+VERSION);
-		
+
 		println("\n Command args:");
 		println("\t-h (--help) to call this menu");
 		println("\t-d (--database) <name of the database>");
@@ -231,19 +206,19 @@ public class Main {
 		println("\t--overwrite defines if any old variants from previous runs will be overwritten (default: off)");
 		println("\t--rna to use the GATK RNAseq workflow instead of the GATK DNA Variant Calling workflow.");
 		println("\t--anno to annotate the raw variants in the last step.");
-		println("\t-seed <number> to set the random seed. Default is "+randomSeed);
-		
+		println("\t-seed <number> to set the random seed. Otherwise a random seed will be used.");
+
 		println("\nRemember that the working path must be the parent directory of the following folders:");
 		println("\tinputs/");
 		println("\tcache/ (will be created if not exists)\n");
-		
+
 		if(!error.isEmpty()){
 			logger.log(Level.SEVERE, error);
 		}
-		
+
 		System.exit(0);
 	}
-	
+
 	private static void println(String s){
 		System.out.println(s);
 	}
