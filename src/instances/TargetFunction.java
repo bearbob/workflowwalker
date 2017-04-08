@@ -94,7 +94,8 @@ public class TargetFunction {
 		    	chrom = line.substring(0, firstTab);
 		    	pos = line.substring(firstTab+1, secondTab);
 		    	position = Integer.parseInt(pos);
-		    	vlist.add(new Variant(chrom, position, line.substring(secondTab+1)));
+		    	//vlist.add(new Variant(chrom, position, line.substring(secondTab+1)));
+				vlist.add(new Variant(chrom, position, "")); // content currently not needed, save space
 		    	if(vlist.size() >= MAXBATCHSIZE){
 		    		logdb.addGoldVariant(runName, vlist);
 		    		logged += vlist.size();

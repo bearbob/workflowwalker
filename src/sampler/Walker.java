@@ -69,7 +69,7 @@ abstract public class Walker {
 
 		long time = 0;
 		double currentScore = 0.0;
-		double candidateScore = 0.0;
+		double candidateScore;
 
 		sampling:for(int run=1; run<=samples; run++){
 			logger.info("Started sample run "+run);

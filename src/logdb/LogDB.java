@@ -284,8 +284,7 @@ public class LogDB {
 		createGold.append(" (");
 		createGold.append("`id` INTEGER PRIMARY KEY AUTOINCREMENT UNIQUE,");
 		createGold.append("`chrom` TEXT NOT NULL, ");
-		createGold.append("`pos` TEXT NOT NULL, ");
-		createGold.append("`content` TEXT NOT NULL");
+		createGold.append("`pos` TEXT NOT NULL ");
 		createGold.append(")");
 		if(useGold) this.executeUpdate(createGold.toString());
 
@@ -582,7 +581,7 @@ public class LogDB {
 		StringBuilder sql = new StringBuilder("INSERT INTO ");
 		sql.append(runName);
 		sql.append(TABLEgold);
-		sql.append(" ( chrom, pos, content ) VALUES ");
+		sql.append(" ( chrom, pos ) VALUES ");
 		String seperator = "";
 		for(Variant v : vlist){
 			sql.append(seperator);
@@ -590,8 +589,6 @@ public class LogDB {
 			sql.append(v.getChrom());
 			sql.append("', ");
 			sql.append(v.getPos());
-			sql.append(", '");
-			sql.append(v.getContent());
 			sql.append("')");
 			seperator = ", ";
 		}

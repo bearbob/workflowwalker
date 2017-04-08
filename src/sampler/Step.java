@@ -157,7 +157,7 @@ public class Step {
 			double scoreAll = Double.parseDouble(vpAll.getValue());
 			double visitedMultiply = ((edgesAll * scoreAll)>0) ? (double)visitedAll/(edgesAll * scoreAll) : 0.0;
 			long left = 0;
-			long right = edgesAll -1;
+			long right = edgesAll -1; //minus 1 because the index starts at 0
 			long m;
 			double compare;
 			logger.finest("Started binary search");
@@ -172,14 +172,12 @@ public class Step {
 				logger.finest("Compare: "+compare+" to target-random="+randomValue);
 				if(compare < randomValue){
 					left = m+1;
-				}else if(compare > randomValue){
+				}else if(compare >= randomValue){
 					// check if the last element has a smaller compare value
+					compare = 0.0;
 					if(m>0){
 						vp = logdb.getScoreSumForParamRange(runName, ID, history, groupList.get(chosenGroup).getGroupName(), plist[i], (m-1), temperature, currentScore);
 						compare = ((m - Integer.parseInt(vp.getName()))/(double)edgesAll) + (visitedMultiply * Double.parseDouble(vp.getValue()));
-					}else{
-						//no left element exists, if m is already the leftmost
-						compare = 0.0;
 					}
 					if(compare < randomValue){
 						//the last compare is smaller, therefore the target points to the element we found!
