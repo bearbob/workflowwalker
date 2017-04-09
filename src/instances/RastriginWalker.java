@@ -123,7 +123,7 @@ public class RastriginWalker extends Walker {
 		String[] vals = e.getCommand().split(";");
 		for(String v : vals){
 			double x = Double.parseDouble(v);
-			fx += 35;
+			fx += 30;
 			fx -= (Math.pow(x,2) - A*Math.cos(2*Math.PI*x));
 		}
 	}

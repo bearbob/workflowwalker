@@ -375,8 +375,7 @@ public class LargeDnaWalker extends BashWalker {
 		script.append(getFile("mills"));
 		script.append(" -known ");
 		script.append(getFile("phase1"));
-		script.append(" -entropy $#entropy#$ ");
-		//script.append(" -entropy $#entropy#$ --maxIsizeForMovement $#maxIsize#$ --maxPositionalMoveAllowed $#maxPosMove#$ --maxReadsForRealignment $#maxReads#$ ");
+		script.append(" -entropy $#entropy#$ --filter_reads_with_N_cigar");
 		EdgeGroup eg = new EdgeGroup("Realign_GATK",
 				paramList.toArray(new Parameter[paramList.size()]),
 				new String[]{"dedup.bam", getFile("fa"), getFile("fai"), getFile("dict"), getFile("mills"), getFile("mills_tbi"), getFile("phase1"), getFile("phase1_tbi")}, 
