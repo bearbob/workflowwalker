@@ -57,17 +57,19 @@ abstract public class BashWalker extends Walker {
 	 * @param threads Number of threads used
 	 * @param target The target function instance
 	 */
-	public BashWalker(LogDB logdb, String runName, String basedir, String inputFile, TargetFunction target, int threads) {
+	public BashWalker(LogDB logdb, String runName, TargetFunction target, int threads) {
 		super(logdb, runName);
 		logger.fine("Created new Bash Walker instance");
 		this.THREADS = threads;
-		if(target == null){
-			logger.warning("Given target function was null, creating a default target function with meta comparison and a burryIn phase of 20 samples.");
+		if (target == null) {
+			logger.warning("Given target function was null, creating a default target function with meta comparison");
 			tf = new TargetFunction(logdb);
-		}else{
+		} else {
 			tf = target;
 		}
-		
+	}
+
+	protected void handleFiles(String basedir, String inputFile){
 		if(basedir.endsWith("/")){
 			logger.finer("Path '"+basedir+"' ended with a slash, stripping it for uniformity");
 			basedir = basedir.substring(0, basedir.length()-1);
@@ -76,7 +78,7 @@ abstract public class BashWalker extends Walker {
 		inputFiles = FileHandler.getInput(basedir, inputFile, getInputKeys());
 		SINGLE = !(inputFiles.containsKey("fq2"));
 		this.logdb.prepareRun(this.getSteps().size(), runName, true, (tf.getTarget() == TargetFunction.SIMILARITYgoldstandard));
-		
+
 		if(tf.getTarget() == TargetFunction.SIMILARITYgoldstandard){
 			if(inputFiles.containsKey("gold")){
 				tf.setGoldstandard(basedir+inputFiles.get("gold").getFullInput(), runName);
@@ -84,9 +86,8 @@ abstract public class BashWalker extends Walker {
 				logger.warning("TargetFunction is set to compare to a gold standard, but none was found in the input keys.");
 			}
 		}
-		
+
 		createCache(basedir);
-		
 	}
 
 	/**

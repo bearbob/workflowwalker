@@ -150,7 +150,7 @@ public class Main {
 			logger.info("Changed target function to comparison with gold standard");
 			tf.setTarget(TargetFunction.SIMILARITYgoldstandard);
 		}else{
-			logger.info("Target function set to meta comparison with a burry in of 20 samples.");
+			logger.info("Target function set to meta comparison.");
 		}
 
 		if(nargs.contains("--overwrite")){
@@ -163,12 +163,12 @@ public class Main {
 			tf.setAnnotate(true);
 		}
 
-		logger.info("Run values:\n\tbaseDir: "+baseDir+"\n\trunName: "+runName+"\n\tsampleNumber: "+sampleNumber);
-
 		boolean rna = false;
 		if(nargs.contains("--rna")){
 			rna = true;
+			logger.info("Selecting RNAseq Workflow");
 		}
+		logger.info("Run values:\n\tbaseDir: "+baseDir+"\n\trunName: "+runName+"\n\tsampleNumber: "+sampleNumber);
 		Walker ploid = new LargeWalker(logdb, runName, baseDir, inputFile, threadNumber, tf, rna);
 		ploid.useCache(useCache);
 		ploid.sample(sampleNumber);

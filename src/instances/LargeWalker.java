@@ -39,8 +39,9 @@ public class LargeWalker extends BashWalker {
 	 * @param isRna True, if a rna workflow should be used, else false (dna)
 	 */
 	public LargeWalker(LogDB logdb, String runName, String basedir, String inputFile, int threads, TargetFunction target, boolean isRna) {
-		super(logdb, runName, basedir, inputFile, target, threads);
+		super(logdb, runName, target, threads);
 		this.isRna = isRna;
+		super.handleFiles(basedir, inputFile);
 	}
 
 	@Override
