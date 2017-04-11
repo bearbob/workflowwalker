@@ -61,10 +61,12 @@ public class LargeWalker extends BashWalker {
 		result.add("fai");
 		result.add("mills");
 		result.add("mills_tbi");
-		result.add("phase1");
-		result.add("phase1_tbi");
-		result.add("dbsnp138");
-		result.add("dbsnp138_tbi");
+		if(!this.isRna) {
+			result.add("phase1");
+			result.add("phase1_tbi");
+			result.add("dbsnp138");
+			result.add("dbsnp138_tbi");
+		}
 		result.add("sequencename");
 		if(tf.getTarget() == TargetFunction.SIMILARITYgoldstandard){
 			result.add("gold");
@@ -163,8 +165,8 @@ public class LargeWalker extends BashWalker {
 
 		EdgeGroup trim = new EdgeGroup("trim_galore",
 				null,
-				in.toArray(new String[in.size()]),
-				in.toArray(new String[in.size()]),
+				in,
+				in,
 				prefix.toString());
 
 		step.addEdgeGroup(trim);
@@ -208,7 +210,7 @@ public class LargeWalker extends BashWalker {
 		bwaScript.append(alignResult);
 		EdgeGroup bwa = new EdgeGroup("bwa",
 				paramList.toArray(new Parameter[paramList.size()]),
-				bwaIn.toArray(new String[bwaIn.size()]), 
+				bwaIn.toArray(new String[bwaIn.size()]),
 				new String[]{alignResult}, 
 				bwaScript.toString());
 		
