@@ -164,28 +164,14 @@ public class Main {
 		}
 
 		logger.info("Run values:\n\tbaseDir: "+baseDir+"\n\trunName: "+runName+"\n\tsampleNumber: "+sampleNumber);
-		
+
+		boolean rna = false;
 		if(nargs.contains("--rna")){
-			if(nargs.contains("--ploidy")){
-				Walker ploid = new PloidyRnaWalker(logdb, runName, baseDir, inputFile, threadNumber, tf);
-				ploid.useCache(useCache);
-				ploid.sample(sampleNumber);
-			}else{
-				Walker rna = new RnaWalker(logdb, runName, baseDir, inputFile, threadNumber, tf);
-				rna.useCache(useCache);
-				rna.sample(sampleNumber);
-			}
-		}else{
-			if(nargs.contains("--ploidy")){
-				Walker ploid = new LargeDnaWalker(logdb, runName, baseDir, inputFile, threadNumber, tf);
-				ploid.useCache(useCache);
-				ploid.sample(sampleNumber);
-			}else{
-				Walker dna = new DnaWalker(logdb, runName, baseDir, inputFile, threadNumber, tf);
-				dna.useCache(useCache);
-				dna.sample(sampleNumber);
-			}
+			rna = true;
 		}
+		Walker ploid = new LargeWalker(logdb, runName, baseDir, inputFile, threadNumber, tf, rna);
+		ploid.useCache(useCache);
+		ploid.sample(sampleNumber);
 
 	}
 

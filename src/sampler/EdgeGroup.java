@@ -18,6 +18,7 @@ package sampler;
 		% limitations under the License.
 */
 
+import java.util.ArrayList;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -33,6 +34,18 @@ public class EdgeGroup {
 	private String rawCommand;
 
 	/**
+	 * Constructor used for empty edge group, e.g.for the decision to either use a tool or none at all this would be the "None" option
+	 * @param groupName Arbitrary (but unique) name (handle as identifier)
+	 */
+	public EdgeGroup(String groupName){
+		this.construct(groupName, null, null, null, null);
+	}
+
+	public EdgeGroup(String groupName, Parameter[] paramList, String rawCommand){
+		this.construct(groupName, paramList, null, null, rawCommand);
+	}
+
+	/**
 	 * 
 	 * @param groupName Arbitrary but unique name (handle as identifier)
 	 * @param paramList An array of parameters used for this edge group (can be null)
@@ -41,6 +54,30 @@ public class EdgeGroup {
 	 * @param rawCommand The raw command where the parameter values that are samples are replaced with placeholders. The placeholders have to use the same names as the parameter that replaces them. For example, the parameter "seeds" has the placeholder "$#seeds#$"
 	 */
 	public EdgeGroup(String groupName, Parameter[] paramList, String[] inputFiles, String[] outputFiles, String rawCommand){
+		this.construct(groupName, paramList, inputFiles, outputFiles, rawCommand);
+	}
+
+	/**
+	 *
+	 * @param groupName Arbitrary but unique name (handle as identifier)
+	 * @param paramList An array of parameters used for this edge group (can be null)
+	 * @param inputFiles An arraylist of strings with file names of the input files (can be null)
+	 * @param outputFiles An arraylist of strings with file names of the ouput files (can be null)
+	 * @param rawCommand The raw command where the parameter values that are samples are replaced with placeholders. The placeholders have to use the same names as the parameter that replaces them. For example, the parameter "seeds" has the placeholder "$#seeds#$"
+	 */
+	public EdgeGroup(String groupName, Parameter[] paramList, ArrayList<String> inputFiles, ArrayList<String> outputFiles, String rawCommand){
+		String[] in = null;
+		String[] out = null;
+		if(inputFiles != null) {
+			in = inputFiles.toArray(new String[inputFiles.size()]);
+		}
+		if(inputFiles != null) {
+			out = outputFiles.toArray(new String[outputFiles.size()]);
+		}
+		this.construct(groupName, paramList, in, out, rawCommand);
+	}
+
+	private void construct(String groupName, Parameter[] paramList, String[] inputFiles, String[] outputFiles, String rawCommand){
 		this.setParameterList(paramList);
 		if(groupName == null){
 			String placeholder = "placeholdername_";
@@ -53,7 +90,6 @@ public class EdgeGroup {
 		this.setInputFiles(inputFiles);
 		this.setOutputFiles(outputFiles);
 		this.setRawCommandDefinition(rawCommand);
-		
 	}
 
 	private void setParameterList(Parameter[] list) {

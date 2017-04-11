@@ -24,16 +24,32 @@ import java.util.logging.Level;
 		% limitations under the License.
 */
 
-public class LargeDnaWalker extends BashWalker {
+public class LargeWalker extends BashWalker {
 	protected Workflow workflow = null;
+	private boolean isRna = false;
 
-	public LargeDnaWalker(LogDB logdb, String runName, String basedir, String inputFile, int threads, TargetFunction target) {
+	/**
+	 *
+	 * @param logdb An instance of the LogDB
+	 * @param runName The name of the current sampling process
+	 * @param basedir path to the base directory
+	 * @param inputFile Path to the input file
+	 * @param threads Number of threads used
+	 * @param target The target function instance
+	 * @param isRna True, if a rna workflow should be used, else false (dna)
+	 */
+	public LargeWalker(LogDB logdb, String runName, String basedir, String inputFile, int threads, TargetFunction target, boolean isRna) {
 		super(logdb, runName, basedir, inputFile, target, threads);
+		this.isRna = isRna;
 	}
 
 	@Override
 	protected String[] getInputKeys() {
-		logger.finest("Calling for input key names for DNAseq");
+		if(this.isRna) {
+			logger.finest("Calling for input key names for RNAseq");
+		}else{
+			logger.finest("Calling for input key names for DNAseq");
+		}
 		ArrayList<String> result = new ArrayList<>();
 		result.add("fq1");
 		result.add("fq2");
@@ -49,6 +65,7 @@ public class LargeDnaWalker extends BashWalker {
 		result.add("phase1_tbi");
 		result.add("dbsnp138");
 		result.add("dbsnp138_tbi");
+		result.add("sequencename");
 		if(tf.getTarget() == TargetFunction.SIMILARITYgoldstandard){
 			result.add("gold");
 		}
@@ -67,8 +84,12 @@ public class LargeDnaWalker extends BashWalker {
 			workflow.add(getTrim()); //0
 			workflow.add(getAlign()); //1
 			workflow.add(getSort()); //2
-			workflow.add(getCreateTarget()); //3
-			workflow.add(getRealign()); //4
+			if(this.isRna){
+				workflow.add(getSplit());
+			}else {
+				workflow.add(getCreateTarget()); //3
+				workflow.add(getRealign()); //4
+			}
 			workflow.add(getRecal()); //5
 			workflow.add(getPrintReads()); //6
 			workflow.add(getRawVariants()); //7
@@ -94,7 +115,7 @@ public class LargeDnaWalker extends BashWalker {
 		 * this is because the choice is to either use trimming or not. this edge group
 		 * represents the "not"-part
 		 *  */
-		EdgeGroup eg = new EdgeGroup("noTrim", null, null, null, null);
+		EdgeGroup eg = new EdgeGroup("noTrim");
 		step.addEdgeGroup(eg);
 
 
@@ -225,7 +246,7 @@ public class LargeDnaWalker extends BashWalker {
 		starOne.append("samtools flagstat Aligned.out.sam");
 		starOne.append(System.getProperty("line.separator"));
 		starOne.append("mv Aligned.out.sam ../");
-		starOne.append(alignResult);
+		starOne.append(alignResult);  //rename output
 		starOne.append(System.getProperty("line.separator"));
 		starOne.append("cd .."); //go back to the parent folder
 		EdgeGroup starAlign = new EdgeGroup("star",
@@ -321,7 +342,8 @@ public class LargeDnaWalker extends BashWalker {
 		//add the edgegroups
 
 		StringBuilder script = new StringBuilder();
-		script.append("picard AddOrReplaceReadGroups I=aligned_reads.sam O=rg_added_sorted.bam SO=coordinate RGID=1 RGLB=library RGPL=ILLUMINA RGPU=machine RGSM=placeholder");
+		script.append("picard AddOrReplaceReadGroups I=aligned_reads.sam O=rg_added_sorted.bam SO=coordinate RGID=1 RGLB=library RGPL=ILLUMINA RGPU=machine RGSM=");
+		script.append(getFile("sequencename"));
 		script.append(System.getProperty("line.separator"));
 		script.append("picard MarkDuplicates I=rg_added_sorted.bam O=dedup.bam METRICS_FILE=dedupmetrics.txt ASSUME_SORT_ORDER=coordinate CREATE_INDEX=true VALIDATION_STRINGENCY=SILENT");
 		//add the bam index
@@ -329,7 +351,7 @@ public class LargeDnaWalker extends BashWalker {
 		script.append("picard BuildBamIndex I=dedup.bam O=dedup.bai");
 		EdgeGroup eg = new EdgeGroup("picardSortDedup", 
 				null,
-				new String[]{"aligned_reads.sam"}, 
+				new String[]{"aligned_reads.sam", getFile("sequencename")},
 				new String[]{"rg_added_sorted.bam", "dedup.bam", "dedup.bai"},
 				script.toString()
 				);
@@ -337,6 +359,26 @@ public class LargeDnaWalker extends BashWalker {
 		sort.addEdgeGroup(eg);
 		return sort;
 		
+	}
+
+	private Step getSplit(){
+		Step step = new Step(this.logdb, this.runName);
+		//add the edgegroups
+
+		StringBuilder cigar = new StringBuilder();
+		cigar.append("gatk -T SplitNCigarReads -R ");
+		cigar.append(getFile("fa"));
+		cigar.append(" -I dedup.bam -o realigned_reads.bam");
+		cigar.append(" -rf ReassignOneMappingQuality -RMQF 255 -RMQT 60 -U ALLOW_N_CIGAR_READS");
+		EdgeGroup eg = new EdgeGroup("SplitNCigar_GATK",
+				null,
+				new String[]{"dedup.bam", getFile("fa"), getFile("fai"), getFile("dict")},
+				new String[]{"realigned_reads.bam", "realigned_reads.bai"},
+				cigar.toString()
+		);
+
+		step.addEdgeGroup(eg);
+		return step;
 	}
 	
 	private Step getCreateTarget(){
@@ -390,20 +432,32 @@ public class LargeDnaWalker extends BashWalker {
 	private Step getRecal(){
 		Step step = new Step(this.logdb, this.runName);
 		//add the edgegroups
-		
+
+		ArrayList<String> inputs = new ArrayList<>();
+		inputs.add("realigned_reads.bam");
+		inputs.add(getFile("fa"));
+		inputs.add(getFile("fai"));
+		inputs.add(getFile("dict"));
+		inputs.add(getFile("mills"));
+		inputs.add(getFile("mills_tbi"));
 		StringBuilder script = new StringBuilder();
 		script.append("gatk -T BaseRecalibrator -R ");
 		script.append(getFile("fa"));
 		script.append(" -I realigned_reads.bam -o recal_data.grp -knownSites ");
 		script.append(getFile("mills"));
-		script.append(" -knownSites ");
-		script.append(getFile("phase1"));
-		script.append(" -knownSites ");
-		script.append(getFile("dbsnp138"));
-		//script.append(" --indels_context_size $#ics#$ --mismatches_context_size $#mcs#$");
-		EdgeGroup eg = new EdgeGroup("Baserecal_GATK", 
+		if(!isRna) {
+			inputs.add(getFile("phase1"));
+			inputs.add(getFile("phase1_tbi"));
+			inputs.add(getFile("dbsnp138"));
+			inputs.add(getFile("dbsnp138_tbi"));
+			script.append(" -knownSites ");
+			script.append(getFile("phase1"));
+			script.append(" -knownSites ");
+			script.append(getFile("dbsnp138"));
+		}
+		EdgeGroup eg = new EdgeGroup("Baserecal_GATK",
 				null,
-				new String[]{"realigned_reads.bam", getFile("fa"), getFile("fai"), getFile("dict"), getFile("mills"), getFile("mills_tbi"), getFile("phase1"), getFile("phase1_tbi"), getFile("dbsnp138"), getFile("dbsnp138_tbi")}, 
+				inputs.toArray(new String[inputs.size()]),
 				new String[]{"recal_data.grp"}, 
 				script.toString()
 				);
@@ -439,23 +493,36 @@ public class LargeDnaWalker extends BashWalker {
 		paramList.add(new IntegerParameter("ploidy", 1, 4, 1));
 		paramList.add(new IntegerParameter("min_base_quality_score", 5, 20, 5));
 
+		ArrayList<String> in = new ArrayList<>();
+		in.add("recal_reads.bam");
+		in.add(getFile("fa"));
+		in.add(getFile("fai"));
+		in.add(getFile("dict"));
+
 		StringBuilder script = new StringBuilder();
 		script.append("gatk -T HaplotypeCaller -R ");
 		script.append(getFile("fa"));
 		script.append(" -I recal_reads.bam -o raw_variants.vcf");
-		script.append(" --genotyping_mode DISCOVERY --output_mode EMIT_VARIANTS_ONLY --dbsnp ");
-		script.append(getFile("dbsnp138"));
+		if(this.isRna) {
+			script.append(" -dontUseSoftClippedBases ");
+		}else {
+			script.append(" --genotyping_mode DISCOVERY --output_mode EMIT_VARIANTS_ONLY --dbsnp ");
+			script.append(getFile("dbsnp138"));
+			in.add(getFile("dbsnp138"));
+			in.add(getFile("dbsnp138_tbi"));
+		}
 		//script.append("	--min_base_quality_score $#mbq#$ --minReadsPerAlignmentStart $#minReadsPerAlignStart#$ ");
 		script.append(" --sample_ploidy $#ploidy#$ -mbq $#min_base_quality_score#$ ");
-		String[] out = new String[]{"raw_variants.vcf"};
-		String[] in = new String[]{"recal_reads.bam", getFile("fa"), getFile("fai"), getFile("dict"), getFile("dbsnp138"), getFile("dbsnp138_tbi")};
+		ArrayList<String> out = new ArrayList<>();
+		out.add("raw_variants.vcf");
+
 		if(tf.isAnnotate()){
 			//add jannovar annotation
 			script.append(System.getProperty("line.separator"));
 			script.append("jannovar annotate -i raw_variants.vcf -d ");
 			script.append(getFile("annodb"));
-			out = new String[]{"raw_variants.vcf", "raw_variants.jv.vcf"};
-			in = new String[]{"recal_reads.bam", getFile("fa"), getFile("fai"), getFile("dict"), getFile("dbsnp138"), getFile("dbsnp138_tbi"), getFile("annodb")};
+			in.add(getFile("annodb"));
+			out.add("raw_variants.jv.vcf");
 		}
 		EdgeGroup eg = new EdgeGroup("Haplotype_GATK",
 				paramList.toArray(new Parameter[paramList.size()]),
@@ -477,15 +544,13 @@ public class LargeDnaWalker extends BashWalker {
 		script.append(" -I recal_reads.bam -o raw_variants.vcf --dbsnp ");
 		script.append(getFile("dbsnp138"));
 		script.append(" --sample_ploidy $#ploidy#$ -mbq $#min_base_quality_score#$ ");
-		out = new String[]{"raw_variants.vcf"};
-		in = new String[]{"recal_reads.bam", getFile("fa"), getFile("fai"), getFile("dict"), getFile("dbsnp138"), getFile("dbsnp138_tbi")};
 		if(tf.isAnnotate()){
 			//add jannovar annotation
 			script.append(System.getProperty("line.separator"));
 			script.append("jannovar annotate -i raw_variants.vcf -d ");
 			script.append(getFile("annodb"));
-			out = new String[]{"raw_variants.vcf", "raw_variants.jv.vcf"};
-			in = new String[]{"recal_reads.bam", getFile("fa"), getFile("fai"), getFile("dict"), getFile("dbsnp138"), getFile("dbsnp138_tbi"), getFile("annodb")};
+			out.add("raw_variants.jv.vcf");
+			in.add(getFile("annodb"));
 		}
 		eg = new EdgeGroup("UnifiedGenotyper_GATK",
 				paramList.toArray(new Parameter[paramList.size()]),
@@ -497,6 +562,11 @@ public class LargeDnaWalker extends BashWalker {
 		step.addEdgeGroup(eg);
 
 
+		in = new ArrayList<>();
+		in.add("recal_reads.bam");
+		in.add(getFile("fa"));
+		in.add(getFile("fai"));
+		in.add(getFile("dict"));
 		script = new StringBuilder();
 		script.append("samtools mpileup -uf ");
 		script.append(getFile("fa"));
@@ -504,15 +574,13 @@ public class LargeDnaWalker extends BashWalker {
 		script.append(System.getProperty("line.separator"));
 		//filter all lines that are not header information or have a quality above 50
 		script.append("cat var.raw.vcf | awk '$6>=50 || /^##/' > raw_variants.vcf");
-		out = new String[]{"raw_variants.vcf"};
-		in = new String[]{"recal_reads.bam", getFile("fa"), getFile("fai"), getFile("dict")};
 		if(tf.isAnnotate()){
 			//add jannovar annotation
 			script.append(System.getProperty("line.separator"));
 			script.append("jannovar annotate -i raw_variants.vcf -d ");
 			script.append(getFile("annodb"));
-			out = new String[]{"raw_variants.vcf", "raw_variants.jv.vcf"};
-			in = new String[]{"recal_reads.bam", getFile("fa"), getFile("fai"), getFile("dict"), getFile("annodb")};
+			out.add("raw_variants.jv.vcf");
+			in.add(getFile("annodb"));
 		}
 		eg = new EdgeGroup("samtools_mpileup",
 				null,
@@ -532,15 +600,13 @@ public class LargeDnaWalker extends BashWalker {
 		script.append("freebayes -p $#ploidy#$ -f ");
 		script.append(getFile("fa"));
 		script.append(" recal_reads.bam > raw_variants.vcf");
-		out = new String[]{"raw_variants.vcf"};
-		in = new String[]{"recal_reads.bam", getFile("fa"), getFile("fai"), getFile("dict")};
 		if(tf.isAnnotate()){
 			//add jannovar annotation
 			script.append(System.getProperty("line.separator"));
 			script.append("jannovar annotate -i raw_variants.vcf -d ");
 			script.append(getFile("annodb"));
-			out = new String[]{"raw_variants.vcf", "raw_variants.jv.vcf"};
-			in = new String[]{"recal_reads.bam", getFile("fa"), getFile("fai"), getFile("dict"), getFile("annodb")};
+			out.add("raw_variants.jv.vcf");
+			in.add(getFile("annodb"));
 		}
 		eg = new EdgeGroup("freebayes",
 				paramList.toArray(new Parameter[paramList.size()]),

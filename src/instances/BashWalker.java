@@ -52,8 +52,10 @@ abstract public class BashWalker extends Walker {
 	 * 
 	 * @param logdb An instance of the LogDB
 	 * @param runName The name of the current sampling process
-	 * @param basedir 
-	 * @param inputFile
+	 * @param basedir path to the base directory
+	 * @param inputFile Path to the input file
+	 * @param threads Number of threads used
+	 * @param target The target function instance
 	 */
 	public BashWalker(LogDB logdb, String runName, String basedir, String inputFile, TargetFunction target, int threads) {
 		super(logdb, runName);
