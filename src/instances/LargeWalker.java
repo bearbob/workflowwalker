@@ -65,9 +65,9 @@ public class LargeWalker extends BashWalker {
 		if(!this.isRna) {
 			result.add("phase1");
 			result.add("phase1_tbi");
-			result.add("dbsnp138");
-			result.add("dbsnp138_tbi");
 		}
+		result.add("dbsnp138");
+		result.add("dbsnp138_tbi");
 		result.add("sequencename");
 		if(tf.getTarget() == TargetFunction.SIMILARITYgoldstandard){
 			result.add("gold");
@@ -191,7 +191,7 @@ public class LargeWalker extends BashWalker {
 		StringBuilder bwaScript= new StringBuilder("tar xf ");
 		bwaScript.append(getFile("bwaidx"));
 		bwaScript.append(System.getProperty("line.separator"));
-		bwaScript.append("bwa mem -R \"@RG\\tID:group1\\tSM:sample1\\tPL:illumina\\tLB:lib1\\tPU:unit1\" ");
+		bwaScript.append("bwa mem ");
 		bwaScript.append("  -t ");
 		bwaScript.append(THREADS);
 		bwaScript.append(" -k $#seeds#$ -w $#bandwidth#$");
@@ -205,9 +205,6 @@ public class LargeWalker extends BashWalker {
 			bwaIn.add(getFile("fq2"));
 		}
 		bwaScript.append(" > ");
-		bwaScript.append(alignResult);
-		bwaScript.append(System.getProperty("line.separator"));
-		bwaScript.append("samtools flagstat "); //additional information
 		bwaScript.append(alignResult);
 		EdgeGroup bwa = new EdgeGroup("bwa",
 				paramList.toArray(new Parameter[paramList.size()]),
@@ -292,9 +289,6 @@ public class LargeWalker extends BashWalker {
 		}
 		//define output
 		bowtiwScript.append(" -S ");
-		bowtiwScript.append(alignResult);
-		bowtiwScript.append(System.getProperty("line.separator"));
-		bowtiwScript.append("samtools flagstat ");
 		bowtiwScript.append(alignResult);
 
 		EdgeGroup bowtie = new EdgeGroup("bowtie2",
