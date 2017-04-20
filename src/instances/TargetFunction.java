@@ -132,13 +132,15 @@ public class TargetFunction {
 		if(target == SIMILARITYgoldstandard){
 			// for this case the cosine distance gets reduced to
 			// commonSet.size / sqrt(a.size) * sqrt(gold.size)
-			double commonSetSize = logdb.getGoldstandardHits(runName, variants);
-			double goldSetSize = logdb.getGoldstandardHits(runName, null);
 			double distance = 0.0;
-			if((commonSetSize>0) && goldSetSize > 0){
-				distance = commonSetSize / (Math.sqrt(variants.size()) * Math.sqrt(goldSetSize));
+			if(variants.size() > 0) {
+				double commonSetSize = logdb.getGoldstandardHits(runName, variants);
+				double goldSetSize = logdb.getGoldstandardHits(runName, null);
+				if ((commonSetSize > 0) && goldSetSize > 0) {
+					distance = commonSetSize / (Math.sqrt(variants.size()) * Math.sqrt(goldSetSize));
+				}
+				logger.fine("commonSetSize="+commonSetSize+", goldSetSize="+goldSetSize+" >> distance="+distance);
 			}
-			logger.fine("commonSetSize="+commonSetSize+", goldSetSize="+goldSetSize+" >> distance="+distance);
 			logdb.updateConfiguration(configId,  distance, runName);
 			return;
 		}
