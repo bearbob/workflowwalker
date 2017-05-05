@@ -3,6 +3,7 @@ package general;
 import instances.*;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -33,14 +34,19 @@ import sampler.Walker;
 
 public class Main {
 	private static Logger logger;
-	private static final String VERSION = "1.47b";
+	private static final String VERSION = "1.47c";
 	//defaults
-	private static String runName = "dna";
+	private static String runNameDEFAULT = "dna";
+	private static String baseDirDEFAULT = "~/workspace";
+	private static String dbnameDEFAULT = "log.db"; //default name
+	private static int sampleNumberDEFAULT = 100;
+	private static int threadNumberDEFAULT = 1;
+	private static String runName = runNameDEFAULT;
 	private static String inputFile = "";
-	private static String baseDir = "~/workspace";
-	private static String dbname = "log.db"; //default name
-	private static int sampleNumber = 100;
-	private static int threadNumber = 1;
+	private static String baseDir = baseDirDEFAULT;
+	private static String dbname = dbnameDEFAULT; //default name
+	private static int sampleNumber = sampleNumberDEFAULT;
+	private static int threadNumber = threadNumberDEFAULT;
 	private static int randomSeed;
 	
 	
@@ -54,7 +60,7 @@ public class Main {
 	private static void run(String[] args) {
 
 		ArrayList<String> nargs = new ArrayList<>(Arrays.asList(args));
-		if(nargs.contains("-h") || nargs.contains("--help")){
+		if(nargs.contains("-h") || nargs.contains("--help") || nargs.isEmpty()){
 			showHelp("");
 		}
 		
@@ -169,6 +175,19 @@ public class Main {
 			logger.info("Selecting RNAseq Workflow");
 		}
 		logger.info("Run values:\n\tbaseDir: "+baseDir+"\n\trunName: "+runName+"\n\tsampleNumber: "+sampleNumber);
+
+		if(baseDir.equals(baseDirDEFAULT)){
+			logger.warning("baseDir uses default value '"+baseDirDEFAULT+"'");
+		}
+		if(runName.equals(runNameDEFAULT)){
+			logger.warning("runName uses default value '"+runNameDEFAULT+"'");
+		}
+		if(sampleNumber == sampleNumberDEFAULT){
+			logger.warning("sampleNumber uses default value '"+sampleNumberDEFAULT+"'");
+		}
+		if(inputFile.isEmpty()){
+			showHelp("No input file given.");
+		}
 		Walker ploid = new LargeWalker(logdb, runName, baseDir, inputFile, threadNumber, tf, rna);
 		ploid.useCache(useCache);
 		ploid.sample(sampleNumber);
@@ -213,9 +232,12 @@ public class Main {
 	 * Used to enable and configure logging for the run
 	 */
 	private static void startLogger(){
-
-		try{
+		try {
 			LogManager.getLogManager().readConfiguration();
+		}catch(IOException ioe){
+			//do nothing, use default system settings
+		}
+		try{
 			logger = Logger.getLogger(Logger.GLOBAL_LOGGER_NAME);
 			//remove all old handlers (not the console handler) to cancel writing another logfile to ~/
 			for(Handler old : logger.getHandlers()){
